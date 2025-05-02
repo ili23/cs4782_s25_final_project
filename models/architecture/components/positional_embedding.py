@@ -6,7 +6,7 @@ import math
 class PositionalEmbedding(nn.Module):
     def __init__(self, n_dim, d_dim):
         super(PositionalEmbedding, self).__init__()
-        self.pos_emb = nn.Parameter(torch.zeros(1, N, D))
+        self.pos_emb = nn.Parameter(torch.zeros(1, n_dim, d_dim))
         nn.init.trunc_normal_(self.pos_emb, std=0.02)
     
     def forward(self, x):

@@ -18,5 +18,5 @@ class Patcher(nn.Module):
         output = X_padded.unfold(dim=2, size=patch_length, step=stride)
 
         output = output.squeeze(1)                      
-        output = output.permute(0, 2, 1)               
+        output = output.permute(0, 2, 1)
         return output
