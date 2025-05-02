@@ -7,11 +7,10 @@ class InstanceNormalizer(nn.Module):
         self.eps = eps
     
     def forward(self, x):
-        # Input dimensions: [batch, number_of_timesteps, num_features]
+        # Input dimensions: [batch, num_features, number_of_timesteps]
         # We want to get the mean and variance across the timestep dimension (dim=1)
-        dims = list(range(1, x.dim()-1))
-        mean = torch.mean(x, dim=dims, keepdim=True)
-        var = torch.var(x, dim=dims, keepdim=True, unbiased=False)
+        mean = torch.mean(x, dim=-1, keepdim=True)
+        var = torch.var(x, dim=-1, keepdim=True, unbiased=False)
         std = torch.sqrt(var + self.eps)
 
         normalized = (x - mean) / std
