@@ -1,7 +1,7 @@
 import lightning as L
 import torch
 
-class patchTST(L.LightningModule):
+class PatchTSTTrainer(L.LightningModule):
     def __init__(self, model, output_dir):
         super().__init__()
         self.model = model

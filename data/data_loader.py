@@ -62,11 +62,6 @@ class TimeSeriesDataset(Dataset):
         x = self.features[x_begin:x_end]
         y = self.targets[y_begin:y_end]
 
-        # Handle case where y is a single value (not an array)
-        if not hasattr(y, "__len__"):
-            y = np.array([y])
-
-        # Handle time features
         if self.data_stamp is not None:
             seq_x_mark = self.data_stamp[x_begin:x_end]
             seq_y_mark = self.data_stamp[y_begin:y_end]
@@ -131,4 +126,4 @@ class TSDataLoader:
             )
             return train_loader, val_loader
 
-        return train_loader
+        return train_loader, None
