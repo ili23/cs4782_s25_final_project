@@ -16,6 +16,7 @@ class AssembledModel(nn.Module):
         self.projection = Projection()
         self.instance_normalizer = InstanceNormalizer()
         self.pos_embedder = PositionalEmbedding()
+        
     def forward(self, x):
         x, mean, std = self.instance_normalizer(x)
         x = self.variable_splitter(x)
