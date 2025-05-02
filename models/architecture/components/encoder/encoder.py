@@ -2,7 +2,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
 class MultiHeadAttention(nn.Module):
     def __init__(self, d_model, num_heads):
@@ -67,6 +69,7 @@ class MultiHeadAttention(nn.Module):
         return x
 
 
+
 class FeedForward(nn.Module):
     def __init__(self, d_model, d_ff):
         """
@@ -90,7 +93,7 @@ class FeedForward(nn.Module):
 
 
 class EncoderLayer(nn.Module):
-    def __init__(self, d_model, num_heads, d_ff):
+    def __init__(self, d_model, num_heads, d_ff, p):
         """
         Inputs:
         d_model: The dimension of the embeddings.
@@ -100,21 +103,28 @@ class EncoderLayer(nn.Module):
         """
         super(EncoderLayer, self).__init__()
 
+        # TODO 11: define the encoder layer
+        #################
+
         self.self_attn = MultiHeadAttention(d_model, num_heads)
         self.norm1 = nn.LayerNorm(d_model)
         self.feed_forward = FeedForward(d_model, d_ff)
         self.norm2 = nn.LayerNorm(d_model)
+        self.dropout = nn.Dropout(p)
+        
 
     def forward(self, x):
 
-        x = self.self_attn(x)
-        x = self.norm1(x)
-        x = self.feed_forward(x)
-        x = self.norm2(x)
+        ## TODO 11: implement the forward function based on the architecture described above
+        #################
+
+        attn_out = self.self_attn(x)
+        x = self.norm1(x + self.dropout(attn_out))
+        ff_out = self.feed_forward(x)
+        x = self.norm2(x + self.dropout(ff_out))
 
         return x
-
-
+    
 class Encoder(nn.Module):
     def __init__(self, d_model, num_heads, num_layers, d_ff):
         """
@@ -125,12 +135,56 @@ class Encoder(nn.Module):
         """
         encoder_layers = []
         for _ in range(num_layers):
-            encoder_layers.append(EncoderLayer(d_model, num_heads, d_ff))
+          encoder_layers.append(EncoderLayer(d_model, num_heads, d_ff, p))
         self.encoder_layers = nn.ModuleList(encoder_layers)
+
+        self.fc1 = nn.Linear(d_model, 128)
+        self.fc2 = nn.Linear(128, num_classes)
+        self.relu = nn.ReLU()
+    
+    def forward(self, x):
+        pass
+
+class Transformer(nn.Module):
+    def __init__(
+        self, num_classes, d_model, num_heads, num_layers, d_ff, max_seq_length, p
+    ):
+        """
+        Inputs:
+        num_classes: Number of classes in the classification output.
+        d_model: The dimension of the embeddings.
+        num_heads: Number of heads to use for mult-head attention.
+        num_layers: Number of encoder layers.
+        d_ff: Hidden dimension size for the feed-forward network.
+        max_seq_length: Maximum sequence length accepted by the transformer.
+        p: Dropout probability.
+        """
+        super(Transformer, self).__init__()
+
+        # TODO 12: define the transformer
+        #################
+
+        self.positional_encoding = PositionalEncoding(d_model, max_seq_length)
+        self.dropout = nn.Dropout(p)
+
+        
+
 
     def forward(self, x):
 
+        ## TODO 12: implement the forward pass
+        #################
+
+        x = self.positional_encoding(x)
+        x = self.dropout(x)
+        
         for layer in self.encoder_layers:
-            x = layer(x)
+          x = layer(x)
+        
+        x = torch.mean(x, dim=1)
+        x = self.relu(x)
+        x = self.fc1(x)
+        x = self.relu(x)
+        x = self.fc2(x)
 
         return x

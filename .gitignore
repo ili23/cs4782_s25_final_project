@@ -1,3 +1,5 @@
 *.csv
 *.cache
 */data_files/*
+*/venv/*
+*/__pycache__/*

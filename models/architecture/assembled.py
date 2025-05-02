@@ -19,7 +19,8 @@ class AssembledModel(nn.Module):
         
     def forward(self, x):
         x, mean, std = self.instance_normalizer(x)
-        x = self.variable_splitter(x)
+        x = self.variable_splitter(x)  # this should split into the channels
+       
         x = self.patcher(x) 
         x = self.projection(x)
         x = self.pos_embedder(x)
