@@ -8,6 +8,7 @@ class InstanceNormalizer(nn.Module):
     
     def forward(self, x):
         # Input dimensions: [batch, num_features, number_of_timesteps]
+        # Output dimensions: [batch, num_features, number_of_timesteps]
         # We want to get the mean and variance across the timestep dimension (dim=1)
         mean = torch.mean(x, dim=-1, keepdim=True)
         var = torch.var(x, dim=-1, keepdim=True, unbiased=False)
