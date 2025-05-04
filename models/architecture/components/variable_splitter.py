@@ -10,4 +10,6 @@ class VariableSplitter(nn.Module):
         # Input dimensions: [batch, num_features, number_of_timesteps]
         # Output dimensions: [batch, 1, number_of_timesteps] * num_features
         univariate_series = torch.split(x, 1, dim=1)
+        print(univariate_series[0].shape)
+        print(univariate_series)
         return univariate_series
