@@ -117,9 +117,9 @@ class EncoderLayer(nn.Module):
         super(EncoderLayer, self).__init__()
 
         self.self_attn = MultiHeadAttention(d_model, num_heads)
-        self.norm1 = nn.BatchNorm1d(d_model, track_running_stats=False)
+        self.norm1 = nn.BatchNorm1d(d_model, track_running_stats=True)
         self.feed_forward = FeedForward(d_model, d_ff)
-        self.norm2 = nn.BatchNorm1d(d_model, track_running_stats=False)
+        self.norm2 = nn.BatchNorm1d(d_model, track_running_stats=True)
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x, mask=None):
