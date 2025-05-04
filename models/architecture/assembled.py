@@ -6,25 +6,31 @@ from models.architecture.components.variable_splitter import VariableSplitter
 from models.architecture.components.instance_normalizer import InstanceNormalizer
 from models.architecture.components.embedding import PositionalEncoding, LearnedEncoding
 from models.architecture.components.projection import Projection
+from models.architecture.components.flatten_head import FlattenHead
 
 class AssembledModel(nn.Module):
     def __init__(self, 
+                 seq_len,
                  input_dim=None, 
                  patch_length=16, 
                  embed_dim=768, 
                  depth=12, 
                  num_heads=12, 
+                 target_window=24,
+                 stride=8,
                  mlp_ratio=4.0):
         super(AssembledModel, self).__init__()
         
         # Initialize with proper parameters
         self.instance_normalizer = InstanceNormalizer()
         self.variable_splitter = VariableSplitter()
-        self.patcher = Patcher(patch_length, stride=8)
+        self.patcher = Patcher(patch_length, stride=stride)
         self.projection = Projection(patch_dim=patch_length, d_dim=embed_dim)
         self.pos_embedder = PositionalEncoding(d_model=embed_dim)
         # self.pos_embedder = LearnedEncoding(patch_num=patch_length, d_model=embed_dim)
         # d_ff is the hidden dimension size for the feed-forward network, change later
+        patch_num = int((seq_len - patch_length)/stride + 1) + 1
+        self.flatten_head = FlattenHead(embed_dim * patch_num, target_window)
         self.encoder = Encoder(d_model=embed_dim, num_heads=num_heads, num_layers=depth, d_ff=embed_dim)
 
     def encode(self, x):
@@ -42,6 +48,8 @@ class AssembledModel(nn.Module):
     def forward(self, x):
         # Input dimensions: [batch, number_of_timesteps, num_features]
         # Rearranged dimensions: [batch, num_features, number_of_timesteps]
+        b = x.shape[0]
+        f = x.shape[2]
         x = x.permute(0,2,1)
         # Normalize input
         x, mean, std = self.instance_normalizer(x)
@@ -54,11 +62,19 @@ class AssembledModel(nn.Module):
         print("x shape after variable splitting:", len(x))
         print("x[0] shape after variable splitting:", x[0].shape)
 
-        encoded = torch.vmap(self.encode, in_dims=(0), randomness="same")(x)
+        # encoded = torch.vmap(self.encode, in_dims=(0), randomness="same")(x)
+        encoded = self.encode(x)
 
         print("encoded shape after encoding:", encoded.shape)
 
-        output = self.instance_normalizer.denormalize(encoded, mean, std)
+        print("Mean shape after encoding:", mean.shape)
+        print("Std shape after encoding:", std.shape)
+
+        flattened = self.flatten_head.forward(encoded, b, f)
+
+        output = self.instance_normalizer.denormalize(flattened, mean, std)
         print("output shape after denormalization:", output.shape)
+
+        # x = x.permute(0,2,1)
         
         return output
