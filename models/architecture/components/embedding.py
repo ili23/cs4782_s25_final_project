@@ -29,3 +29,22 @@ class PositionalEncoding(nn.Module):
         Adds the positional encoding to the model input x.
         """
         return x + self.pe[:, : x.size(1)]
+    
+class LearnedEncoding(nn.Module):
+    def __init__(self, patch_num, d_model, max_seq_length=5000):
+        """
+        Inputs:
+        d_model: The dimension of the embeddings.
+        max_seq_length: Maximum length of sequences input into the transformer.
+        """
+        super(LearnedEncoding, self).__init__()
+        
+        encoding = torch.empty((patch_num, d_model))
+        torch.nn.init.normal_(encoding, mean=0.0, std=0.1)
+        self.encoding = nn.Parameter(encoding, requires_grad=True)
+
+    def forward(self, x):
+        """
+        Return the sum plus the learned encoding.
+        """
+        return x + self.encoding

@@ -15,12 +15,13 @@ class Patcher(nn.Module):
         
         seq_len = x.shape[2]
         patch_num = int((seq_len - self.patch_length) / self.stride + 1)
-        if self.padding_patch == 'end':
-            x = self.padding_patch_layer(x)
-            patch_num += 1
-        
+        # if self.padding_patch == 'end':
+        x = self.padding_patch_layer(x)
+        patch_num += 1
+        # x = F.pad(x, pad=(0, self.stride), mode='replicate')
         output = x.unfold(dimension=2, size=self.patch_length, step=self.stride)
         output = output.squeeze(1)                    
-        output = output.permute(0, 2, 1)
+        # output = output.permute(0, 2, 1)
+        print(patch_num, output.shape)
         
         return output
