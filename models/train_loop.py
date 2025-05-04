@@ -17,7 +17,7 @@ class PatchTSTTrainer(L.LightningModule):
     def training_step(self, batch, batch_idx):
         if batch_idx == 0:
             self.train_loss = 0
-        x, y = batch
+        x, y = batch[0], batch[1]
         y_hat = self.model(x)
         loss = self.loss(y_hat, y)
         self.train_loss += loss.item()
@@ -30,7 +30,7 @@ class PatchTSTTrainer(L.LightningModule):
     def validation_step(self, batch, batch_idx):
         if batch_idx == 0:
             self.val_loss = 0
-        x, y = batch
+        x, y = batch[0], batch[1]
         y_hat = self.model(x)
         loss = self.loss(y_hat, y)
         self.val_loss += loss.item()
