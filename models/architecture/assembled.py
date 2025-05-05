@@ -39,6 +39,12 @@ class AssembledModel(nn.Module):
     def set_dataset(self, dataset):
         """Set the dataset reference to access the scaler"""
         self.dataset = dataset
+        # Move scaler parameters to the same device as the model if available
+        if hasattr(dataset, 'scaler') and dataset.scaler is not None:
+            if hasattr(dataset.scaler, 'mean') and dataset.scaler.mean is not None:
+                dataset.scaler.mean = dataset.scaler.mean.to(next(self.parameters()).device)
+            if hasattr(dataset.scaler, 'std') and dataset.scaler.std is not None:
+                dataset.scaler.std = dataset.scaler.std.to(next(self.parameters()).device)
 
     def encode(self, x):
         # print("x shape before projection:", len(x))
@@ -86,22 +92,8 @@ class AssembledModel(nn.Module):
         # print("output shape after denormalization:", output.shape)
         
         # Apply inverse transform from StandardScaler if dataset is available
-        if self.dataset is not None and hasattr(self.dataset, 'inverse_transform'):
-            # Convert to numpy for sklearn StandardScaler
-            output_np = output.detach().cpu().numpy()
-            
-            # Reshape if needed - StandardScaler expects 2D input
-            original_shape = output_np.shape
-            reshaped = output_np.reshape(-1, original_shape[-1])
-            
-            # Apply inverse transform
-            unscaled = self.dataset.inverse_transform(reshaped)
-            
-            # Reshape back to original shape
-            unscaled = unscaled.reshape(original_shape)
-            
-            # Convert back to tensor on the original device
-            output = torch.tensor(unscaled, device=output.device)
-            print("Inversed shape:", output.shape)
+        if self.dataset is not None and hasattr(self.dataset, 'scaler') and self.dataset.scaler is not None:
+            # We can directly apply inverse_transform on GPU tensors now
+            output = self.dataset.inverse_transform(output)
         
         return output
