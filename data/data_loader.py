@@ -92,6 +92,7 @@ class TSDataLoader:
 
     def _load_data(self):
         df = pd.read_csv(self.data_csv_path)
+        df = df[:2500]
         if self.train_val_split:
             train_size = int(len(df) * (1 - self.val_ratio))
             train_df = df.iloc[:train_size]

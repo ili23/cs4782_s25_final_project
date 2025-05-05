@@ -22,6 +22,6 @@ class Patcher(nn.Module):
         output = x.unfold(dimension=2, size=self.patch_length, step=self.stride)
         output = output.squeeze(1)                    
         # output = output.permute(0, 2, 1)
-        print(patch_num, output.shape)
+        # print(patch_num, output.shape)
         
         return output
