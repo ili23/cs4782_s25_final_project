@@ -75,28 +75,28 @@ class TimeSeriesDataset(Dataset):
 
 class TSDataLoader:
     def __init__(self, data_csv_path, seq_len=24, pred_len=24,
-                 batch_size=32, device='cpu', train_val_split=True,
-                 shuffle=True, target_column=None, scale=True,
-                 val_ratio=0.2):
+                 batch_size=32, device='cpu', train_val_test_split=[0.7, 0.2, 0.1],
+                 shuffle=True, target_column=None, scale=True):
         self.data_csv_path = data_csv_path
         self.batch_size = batch_size
         self.device = device
-        self.train_val_split = train_val_split
+        self.train_val_test_split = train_val_test_split
         self.shuffle = shuffle
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.target_column = target_column
         self.scale = scale
-        self.val_ratio = val_ratio
         self._load_data()
 
     def _load_data(self):
         df = pd.read_csv(self.data_csv_path)
         df = df[:2500]
-        if self.train_val_split:
-            train_size = int(len(df) * (1 - self.val_ratio))
+        if self.train_val_test_split:
+            train_size = int(len(df) * self.train_val_test_split[0])
+            val_size = int(len(df) * self.train_val_test_split[1])
             train_df = df.iloc[:train_size]
-            val_df = df.iloc[train_size:]
+            val_df = df.iloc[train_size:train_size + val_size]
+            test_df = df.iloc[train_size + val_size:]
 
             self.train_dataset = TimeSeriesDataset(
                 train_df, self.seq_len, self.pred_len, self.target_column, self.scale
@@ -104,11 +104,15 @@ class TSDataLoader:
             self.val_dataset = TimeSeriesDataset(
                 val_df, self.seq_len, self.pred_len, self.target_column, self.scale
             )
+            self.test_dataset = TimeSeriesDataset(
+                test_df, self.seq_len, self.pred_len, self.target_column, self.scale
+            )
         else:
             self.train_dataset = TimeSeriesDataset(
                 df, self.seq_len, self.pred_len, self.target_column, self.scale
             )
             self.val_dataset = None
+            self.test_dataset = None
 
     def get_data_loaders(self):
         train_loader = DataLoader(
@@ -126,5 +130,14 @@ class TSDataLoader:
                 drop_last=True
             )
             return train_loader, val_loader
+        
+        if self.test_dataset:
+            test_loader = DataLoader(
+                self.test_dataset,
+                batch_size=self.batch_size,
+                shuffle=False,
+                drop_last=True
+            )
+            return train_loader, test_loader
 
         return train_loader, None
