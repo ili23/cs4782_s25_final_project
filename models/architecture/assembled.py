@@ -33,6 +33,11 @@ class AssembledModel(nn.Module):
         print("Number of patches: ", patch_num)
         self.flatten_head = FlattenHead(embed_dim * patch_num, pred_len)
         self.encoder = Encoder(d_model=embed_dim, num_heads=num_heads, num_layers=depth, d_ff=embed_dim)
+        self.dataset = None  # Store reference to dataset for inverse scaling
+
+    def set_dataset(self, dataset):
+        """Set the dataset reference to access the scaler"""
+        self.dataset = dataset
 
     def encode(self, x):
         # print("x shape before projection:", len(x))
@@ -75,8 +80,26 @@ class AssembledModel(nn.Module):
 
         output = self.instance_normalizer.denormalize(flattened, mean, std)
         
-
         # x = x.permute(0,2,1)
         output = output.permute(0,2,1)
         # print("output shape after denormalization:", output.shape)
+        
+        # Apply inverse transform from StandardScaler if dataset is available
+        if self.dataset is not None and hasattr(self.dataset, 'inverse_transform'):
+            # Convert to numpy for sklearn StandardScaler
+            output_np = output.detach().cpu().numpy()
+            
+            # Reshape if needed - StandardScaler expects 2D input
+            original_shape = output_np.shape
+            reshaped = output_np.reshape(-1, original_shape[-1])
+            
+            # Apply inverse transform
+            unscaled = self.dataset.inverse_transform(reshaped)
+            
+            # Reshape back to original shape
+            unscaled = unscaled.reshape(original_shape)
+            
+            # Convert back to tensor on the original device
+            output = torch.tensor(unscaled, device=output.device)
+        
         return output
