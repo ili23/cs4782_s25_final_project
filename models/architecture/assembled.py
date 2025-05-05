@@ -19,7 +19,8 @@ class AssembledModel(nn.Module):
                  pred_len=24,
                  stride=8,
                  mlp_ratio=4.0,
-                 dataset=None):
+                 dataset=None,
+                 output_dim=None):  # Make output_dim optional
         super().__init__()
         
         # Initialize with proper parameters
@@ -34,6 +35,11 @@ class AssembledModel(nn.Module):
         print("Number of patches: ", patch_num)
         self.flatten_head = FlattenHead(embed_dim * patch_num, pred_len)
         self.encoder = Encoder(d_model=embed_dim, num_heads=num_heads, num_layers=depth, d_ff=embed_dim)
+        
+        # Store the output dimension for later use
+        self.output_dim = output_dim
+        self.feature_projection = None  # Will be created in forward if needed
+        
         self.set_dataset(dataset)  # Store reference to dataset for inverse scaling
 
     def set_dataset(self, dataset):
@@ -63,34 +69,26 @@ class AssembledModel(nn.Module):
         # Input dimensions: [batch, number_of_timesteps, num_features]
         # Rearranged dimensions: [batch, num_features, number_of_timesteps]
         b = x.shape[0]
-        f = x.shape[2]
+        f = x.shape[2]  # Number of input features
         x = x.permute(0,2,1)
         # Normalize input
         x, mean, std = self.instance_normalizer(x)
-        # print("x shape after normalization:", x.shape)
         patches = self.patcher(x)
-        # print("patches shape after patching:", patches.shape)
-        # Shape should be: [batch, num_features, patch_length, number_of_patches]
         x = self.variable_splitter(patches)
-        # Tuple of num_features tensors size: [batch, 1, patch_length, number_of_patches]
-        # print("x shape after variable splitting:", len(x))
-        # print("x[0] shape after variable splitting:", x[0].shape)
-
-        # encoded = torch.vmap(self.encode, in_dims=(0), randomness="same")(x)
         encoded = self.encode(x)
-
-        # print("encoded shape after encoding:", encoded.shape)
-
-        # print("Mean shape after encoding:", mean.shape)
-        # print("Std shape after encoding:", std.shape)
-
         flattened = self.flatten_head.forward(encoded, b, f)
-
         output = self.instance_normalizer.denormalize(flattened, mean, std)
         
-        # x = x.permute(0,2,1)
+        # Permute output to match target shape [batch, pred_len, features]
         output = output.permute(0,2,1)
-        # print("output shape after denormalization:", output.shape)
+        
+        # If output_dim is specified and different from input features, create a projection layer
+        if self.output_dim is not None and self.output_dim != f:
+            if self.feature_projection is None:
+                # Create the projection layer on first forward pass when we know the input size
+                self.feature_projection = nn.Linear(f, self.output_dim).to(output.device)
+                print(f"Created projection layer from {f} to {self.output_dim} features")
+            output = self.feature_projection(output)
         
         # Apply inverse transform from StandardScaler if dataset is available
         if self.dataset is not None and hasattr(self.dataset, 'scaler') and self.dataset.scaler is not None:
