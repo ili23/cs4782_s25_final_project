@@ -18,7 +18,7 @@ class PatchTSTTrainer(L.LightningModule):
         if batch_idx == 0:
             self.train_loss = []
         x, y = batch[0], batch[1]
-        y_hat = self.model(x)
+        y_hat = self.forward(x)
         loss = self.loss(y_hat, y)
         self.train_loss.append(loss.item())
         self.log('train_loss', loss)
@@ -33,7 +33,7 @@ class PatchTSTTrainer(L.LightningModule):
         if batch_idx == 0:
             self.val_loss = []
         x, y = batch[0], batch[1]
-        y_hat = self.model(x)
+        y_hat = self.forward(x)
         loss = self.loss(y_hat, y)
         self.val_loss.append(loss.item())
         self.log('val_loss', loss)
