@@ -16,32 +16,35 @@ class PatchTSTTrainer(L.LightningModule):
     
     def training_step(self, batch, batch_idx):
         if batch_idx == 0:
-            self.train_loss = 0
+            self.train_loss = []
         x, y = batch[0], batch[1]
         y_hat = self.model(x)
         loss = self.loss(y_hat, y)
-        self.train_loss += loss.item()
+        self.train_loss.append(loss.item())
         self.log('train_loss', loss)
         return loss
     
     def on_train_epoch_end(self):
-        self.log('total_train_loss', self.train_loss)
+        train_loss = torch.mean(torch.tensor(self.train_loss))
+        self.log('total_train_loss', train_loss)
+        print("Train epoch complete, loss: ", train_loss)
 
     def validation_step(self, batch, batch_idx):
         if batch_idx == 0:
-            self.val_loss = 0
+            self.val_loss = []
         x, y = batch[0], batch[1]
         y_hat = self.model(x)
         loss = self.loss(y_hat, y)
-        self.val_loss += loss.item()
+        self.val_loss.append(loss.item())
         self.log('val_loss', loss)
         return loss
     
     def on_validation_epoch_end(self):
-        self.log('total_val_loss', self.val_loss)
-        if self.val_loss < self.best_val_loss:
-            self.best_val_loss = self.val_loss
-            self.log('best_val_loss', self.val_loss)
+        val_loss = torch.mean(torch.tensor(self.val_loss))
+        self.log('total_val_loss', val_loss)
+        if val_loss < self.best_val_loss:
+            self.best_val_loss = val_loss
+            self.log('best_val_loss', val_loss)
             # Save the model checkpoint
             torch.save(self.model.state_dict(), self.output_dir + 'best_model.pt')
 
