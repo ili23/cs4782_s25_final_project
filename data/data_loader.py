@@ -2,7 +2,62 @@ import numpy as np
 import pandas as pd
 import torch
 from torch.utils.data import Dataset, DataLoader
-from sklearn.preprocessing import StandardScaler
+# from sklearn.preprocessing import StandardScaler
+
+
+class StandardScaler:
+    def __init__(self, mean=None, std=None, epsilon=1e-7):
+        self.mean = mean
+        self.std = std
+        self.epsilon = epsilon
+
+    def fit(self, values):
+        """Compute mean and std to be used for normalization"""
+        if isinstance(values, np.ndarray):
+            values = torch.FloatTensor(values)
+            
+        if values.dim() == 2:
+            # For 2D arrays, compute stats along first dimension
+            self.mean = torch.mean(values, dim=0)
+            self.std = torch.std(values, dim=0)
+        else:
+            # For higher dimensional arrays
+            dims = list(range(values.dim() - 1))
+            self.mean = torch.mean(values, dim=dims)
+            self.std = torch.std(values, dim=dims)
+
+    def transform(self, values):
+        """Normalize values using stored mean and std"""
+        if isinstance(values, np.ndarray):
+            values = torch.FloatTensor(values)
+            is_numpy = True
+        else:
+            is_numpy = False
+            
+        normalized = (values - self.mean) / (self.std + self.epsilon)
+        
+        if is_numpy:
+            return normalized.numpy()
+        return normalized
+
+    def fit_transform(self, values):
+        """Compute mean, std and normalize values"""
+        self.fit(values)
+        return self.transform(values)
+        
+    def inverse_transform(self, normalized_values):
+        """Transform normalized data back to original scale"""
+        if isinstance(normalized_values, np.ndarray):
+            normalized_values = torch.FloatTensor(normalized_values)
+            is_numpy = True
+        else:
+            is_numpy = False
+        
+        original_values = normalized_values * (self.std + self.epsilon) + self.mean
+        
+        if is_numpy:
+            return original_values.numpy()
+        return original_values
 
 
 class TimeSeriesDataset(Dataset):
@@ -11,6 +66,7 @@ class TimeSeriesDataset(Dataset):
         self.pred_len = pred_len
         self.df = dataframe.copy()
         self.target_column = target_column
+        self.scale = scale  # Store whether we scaled the data
 
         datetime_columns = []
         for col in self.df.columns:
@@ -48,6 +104,8 @@ class TimeSeriesDataset(Dataset):
         if scale:
             self.scaler = StandardScaler()
             self.features = self.scaler.fit_transform(self.features)
+        else:
+            self.scaler = None
 
     def __len__(self):
         return len(self.df) - self.seq_len - self.pred_len + 1
@@ -70,7 +128,10 @@ class TimeSeriesDataset(Dataset):
             return torch.FloatTensor(x), torch.FloatTensor(y)
 
     def inverse_transform(self, data):
-        return self.scaler.inverse_transform(data)
+        """Transform normalized data back to original scale"""
+        if self.scale and self.scaler is not None:
+            return self.scaler.inverse_transform(data)
+        return data
 
 
 class TSDataLoader:
