@@ -39,12 +39,13 @@ class AssembledModel(nn.Module):
     def set_dataset(self, dataset):
         """Set the dataset reference to access the scaler"""
         self.dataset = dataset
-        # Move scaler parameters to the same device as the model if available
+        # Move scaler parameters to the same device as the model
         if hasattr(dataset, 'scaler') and dataset.scaler is not None:
             if hasattr(dataset.scaler, 'mean') and dataset.scaler.mean is not None:
-                dataset.scaler.mean = dataset.scaler.mean.to(next(self.parameters()).device)
-            if hasattr(dataset.scaler, 'std') and dataset.scaler.std is not None:
-                dataset.scaler.std = dataset.scaler.std.to(next(self.parameters()).device)
+                device = next(self.parameters()).device
+                dataset.scaler.mean = dataset.scaler.mean.to(device)
+                dataset.scaler.std = dataset.scaler.std.to(device)
+                dataset.scaler.train_device = device  # Update the train_device attribute
 
     def encode(self, x):
         # print("x shape before projection:", len(x))
@@ -93,6 +94,13 @@ class AssembledModel(nn.Module):
         
         # Apply inverse transform from StandardScaler if dataset is available
         if self.dataset is not None and hasattr(self.dataset, 'scaler') and self.dataset.scaler is not None:
+            device = output.device
+            # Ensure device consistency
+            if hasattr(self.dataset.scaler, 'mean') and self.dataset.scaler.mean is not None:
+                if self.dataset.scaler.mean.device != device:
+                    self.dataset.scaler.mean = self.dataset.scaler.mean.to(device)
+                if self.dataset.scaler.std.device != device:
+                    self.dataset.scaler.std = self.dataset.scaler.std.to(device)
             # We can directly apply inverse_transform on GPU tensors now
             output = self.dataset.inverse_transform(output)
         

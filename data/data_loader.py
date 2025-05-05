@@ -54,10 +54,15 @@ class StandardScaler:
         else:
             is_numpy = False
         
-        original_values = normalized_values.to(self.train_device) * (self.std + self.epsilon) + self.mean
+        # Ensure all tensors are on the same device
+        device = normalized_values.device
+        mean = self.mean.to(device)
+        std = self.std.to(device)
+        
+        original_values = normalized_values * (std + self.epsilon) + mean
         
         if is_numpy:
-            return original_values.numpy()
+            return original_values.cpu().numpy()
         return original_values
 
 
