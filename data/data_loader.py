@@ -127,7 +127,8 @@ class TSDataLoader:
                 self.val_dataset,
                 batch_size=self.batch_size,
                 shuffle=False,
-                drop_last=True
+                drop_last=True,
+                num_workers=63
             )
             return train_loader, val_loader
         
@@ -136,7 +137,8 @@ class TSDataLoader:
                 self.test_dataset,
                 batch_size=self.batch_size,
                 shuffle=False,
-                drop_last=True
+                drop_last=True,
+                num_workers=63
             )
             return train_loader, test_loader
 

@@ -18,7 +18,8 @@ class AssembledModel(nn.Module):
                  num_heads=12, 
                  pred_len=24,
                  stride=8,
-                 mlp_ratio=4.0):
+                 mlp_ratio=4.0,
+                 dataset=None):
         super().__init__()
         
         # Initialize with proper parameters
@@ -33,7 +34,7 @@ class AssembledModel(nn.Module):
         print("Number of patches: ", patch_num)
         self.flatten_head = FlattenHead(embed_dim * patch_num, pred_len)
         self.encoder = Encoder(d_model=embed_dim, num_heads=num_heads, num_layers=depth, d_ff=embed_dim)
-        self.dataset = None  # Store reference to dataset for inverse scaling
+        self.set_dataset(dataset)  # Store reference to dataset for inverse scaling
 
     def set_dataset(self, dataset):
         """Set the dataset reference to access the scaler"""
@@ -101,5 +102,6 @@ class AssembledModel(nn.Module):
             
             # Convert back to tensor on the original device
             output = torch.tensor(unscaled, device=output.device)
+            print("Inversed shape:", output.shape)
         
         return output
