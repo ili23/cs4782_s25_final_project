@@ -10,9 +10,9 @@ class FlattenHead(nn.Module):
 
     def forward(self, x, b, f):
         x = rearrange(x, '(b f) p n -> b f p n', b=b, f=f)
-        print("x shape after rearranging:", x.shape)
+        # print("x shape after rearranging:", x.shape)
         # Flatten the input tensor
         x = self.flatten(x)
-        print("x shape after flattening:", x.shape)
+        # print("x shape after flattening:", x.shape)
         x = self.linear(x)
         return x
