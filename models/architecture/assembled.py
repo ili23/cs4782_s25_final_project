@@ -18,8 +18,7 @@ class AssembledModel(nn.Module):
                  depth=3, 
                  num_heads=16, 
                  pred_len=24,
-                 stride=8,
-                 dataset=None):
+                 stride=8):
         super().__init__()
         
         # Initialize with proper parameters
@@ -35,21 +34,7 @@ class AssembledModel(nn.Module):
         self.flatten_head = FlattenHead(embed_dim * patch_num, pred_len)
         self.encoder = Encoder(d_model=embed_dim, num_heads=num_heads, num_layers=depth, d_ff=ff_dim, dropout=0.2)
         
-        # Store the output dimension for later use
-        self.feature_projection = None  # Will be created in forward if needed
         
-        self.set_dataset(dataset)  # Store reference to dataset for inverse scaling
-
-    def set_dataset(self, dataset):
-        """Set the dataset reference to access the scaler"""
-        self.dataset = dataset
-        # Move scaler parameters to the same device as the model
-        if hasattr(dataset, 'scaler') and dataset.scaler is not None:
-            if hasattr(dataset.scaler, 'mean') and dataset.scaler.mean is not None:
-                device = next(self.parameters()).device
-                dataset.scaler.mean = dataset.scaler.mean.to(device)
-                dataset.scaler.std = dataset.scaler.std.to(device)
-                dataset.scaler.train_device = device  # Update the train_device attribute
 
     def encode(self, x):
         # print("x shape before projection:", len(x))
@@ -76,28 +61,6 @@ class AssembledModel(nn.Module):
         encoded = self.encode(x)
         flattened = self.flatten_head.forward(encoded, b, f)
         output = self.instance_normalizer.denormalize(flattened, mean, std)
-        
         # Permute output to match target shape [batch, pred_len, features]
         output = output.permute(0,2,1)
-        
-        # If output_dim is specified and different from input features, create a projection layer
-        # if self.output_dim is not None and self.output_dim != f:
-        #     if self.feature_projection is None:
-        #         # Create the projection layer on first forward pass when we know the input size
-        #         self.feature_projection = nn.Linear(f, self.output_dim).to(output.device)
-        #         print(f"Created projection layer from {f} to {self.output_dim} features")
-        #     output = self.feature_projection(output)
-        
-        # Apply inverse transform from StandardScaler if dataset is available
-        if self.dataset is not None and hasattr(self.dataset, 'scaler') and self.dataset.scaler is not None:
-            device = output.device
-            # Ensure device consistency
-            if hasattr(self.dataset.scaler, 'mean') and self.dataset.scaler.mean is not None:
-                if self.dataset.scaler.mean.device != device:
-                    self.dataset.scaler.mean = self.dataset.scaler.mean.to(device)
-                if self.dataset.scaler.std.device != device:
-                    self.dataset.scaler.std = self.dataset.scaler.std.to(device)
-            # We can directly apply inverse_transform on GPU tensors now
-            output = self.dataset.inverse_transform(output)
-        
         return output
