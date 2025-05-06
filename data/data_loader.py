@@ -69,90 +69,74 @@ class StandardScaler:
 
 
 class TimeSeriesDataset(Dataset):
-    def __init__(self, dataframe, seq_len, pred_len, target_column=None, scaler=None):
+    def __init__(self, dataframe, seq_len, pred_len, target_column=None, scaled_data=None):
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.df = dataframe.copy()
         self.target_column = target_column
-        self.scaler = scaler
 
-        datetime_columns = []
-        for col in self.df.columns:
-            if pd.api.types.is_datetime64_any_dtype(self.df[col]) or isinstance(self.df[col].iloc[0], str):
-                datetime_columns.append(col)
-
-        self.data_stamp = None
-        if datetime_columns:
-            date_col = datetime_columns[0]
-            if not pd.api.types.is_datetime64_any_dtype(self.df[date_col]):
-                self.df[date_col] = pd.to_datetime(self.df[date_col])
-
-            date_features = self.df[date_col].copy()
-            self.df = self.df.drop(columns=datetime_columns)
+        # Process datetime features
+        if 'date' in self.df.columns:
+            if not pd.api.types.is_datetime64_any_dtype(self.df['date']):
+                self.df['date'] = pd.to_datetime(self.df['date'])
+            
+            # Extract datetime features
             df_stamp = pd.DataFrame()
-            df_stamp['date'] = date_features
-            df_stamp['hour'] = df_stamp.date.apply(lambda row: row.hour, 1)
-            df_stamp['day'] = df_stamp.date.apply(lambda row: row.day, 1)
-            df_stamp['month'] = df_stamp.date.apply(lambda row: row.month, 1)
-            df_stamp['year'] = df_stamp.date.apply(lambda row: row.year, 1)
-            df_stamp['dayofweek'] = df_stamp.date.apply(
-                lambda row: row.dayofweek, 1)
-            self.data_stamp = df_stamp.drop(['date'], axis=1).values
+            df_stamp['hour'] = self.df.date.dt.hour
+            df_stamp['day'] = self.df.date.dt.day
+            df_stamp['month'] = self.df.date.dt.month
+            df_stamp['year'] = self.df.date.dt.year
+            df_stamp['dayofweek'] = self.df.date.dt.dayofweek
+            self.data_stamp = df_stamp.values
+            
+            # Drop date column after extracting features
+            self.df = self.df.drop(columns=['date'])
 
-        # Select only numeric columns for features
+        # Select numeric columns for features
         numeric_cols = self.df.select_dtypes(include=['float64', 'int64']).columns
         
-        if target_column and target_column not in self.df.columns:
-            self.features = self.df[numeric_cols].values.astype(float)
-            self.targets = self.features
-        elif target_column:
-            feature_cols = [col for col in numeric_cols if col != target_column]
-            self.features = self.df[feature_cols].values.astype(float)
-            self.targets = self.df[target_column].values.astype(float)
+        if scaled_data is not None:
+            # Use pre-scaled data if provided
+            self.features = scaled_data
+            self.targets = scaled_data
         else:
-            self.features = self.df[numeric_cols].values.astype(float)
-            self.targets = self.features
-
-        # Apply scaling if scaler is provided
-        if self.scaler is not None:
-            self.features = self.scaler.transform(self.features)
+            if target_column and target_column in self.df.columns:
+                feature_cols = [col for col in numeric_cols if col != target_column]
+                self.features = self.df[feature_cols].values.astype(float)
+                self.targets = self.df[target_column].values.astype(float)
+            else:
+                self.features = self.df[numeric_cols].values.astype(float)
+                self.targets = self.features
 
     def __len__(self):
-        return len(self.df) - self.seq_len - self.pred_len + 1
+        return len(self.features) - self.seq_len - self.pred_len + 1
 
     def __getitem__(self, index):
         x_begin = index
         x_end = x_begin + self.seq_len
-
+        
         y_begin = x_end
         y_end = y_begin + self.pred_len
-
+        
         x = self.features[x_begin:x_end]
         y = self.targets[y_begin:y_end]
-
-        if self.data_stamp is not None:
+        
+        if hasattr(self, 'data_stamp'):
             seq_x_mark = self.data_stamp[x_begin:x_end]
             seq_y_mark = self.data_stamp[y_begin:y_end]
             return torch.FloatTensor(x), torch.FloatTensor(y), torch.FloatTensor(seq_x_mark), torch.FloatTensor(seq_y_mark)
         else:
             return torch.FloatTensor(x), torch.FloatTensor(y)
 
-    def inverse_transform(self, data):
-        """Transform normalized data back to original scale"""
-        if self.scaler is not None:
-            return self.scaler.inverse_transform(data)
-        return data
-
 
 class TSDataLoader:
     def __init__(self, data_csv_path, seq_len=24, pred_len=24,
                  batch_size=32, device='cpu', train_val_test_split=[0.7, 0.2, 0.1],
-                 shuffle=True, target_column=None, scale=True):
+                 target_column=None, scale=True):
         self.data_csv_path = data_csv_path
         self.batch_size = batch_size
         self.device = device
         self.train_val_test_split = train_val_test_split
-        self.shuffle = shuffle
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.target_column = target_column
@@ -161,58 +145,58 @@ class TSDataLoader:
         self._load_data()
 
     def _load_data(self):
+        # Load and parse the CSV file
         df = pd.read_csv(self.data_csv_path)
-        # df = df[:15000]
+        
         if self.train_val_test_split:
+            # Split the data
             train_size = int(len(df) * self.train_val_test_split[0])
             val_size = int(len(df) * self.train_val_test_split[1])
+            
             train_df = df.iloc[:train_size]
             val_df = df.iloc[train_size:train_size + val_size]
             test_df = df.iloc[train_size + val_size:]
 
-            # If scaling is enabled, fit the scaler on training data only
-            if self.scale:
-                if self.target_column and self.target_column in train_df.columns:
-                    train_features = train_df.drop(columns=[self.target_column])
-                    # Ensure we only select numeric columns for scaling
-                    numeric_cols = train_features.select_dtypes(include=['float64', 'int64']).columns
-                    train_features = train_features[numeric_cols].values
-                else:
-                    # Ensure we only select numeric columns for scaling
-                    numeric_cols = train_df.select_dtypes(include=['float64', 'int64']).columns
-                    train_features = train_df[numeric_cols].values
-                
-                train_features = train_features.astype(float)
-                self.scaler.fit(train_features)
+            # Get numeric columns for scaling
+            numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns
+            if self.target_column:
+                numeric_cols = [col for col in numeric_cols if col != self.target_column]
 
-            # Create datasets with the same scaler
-            self.train_dataset = TimeSeriesDataset(
-                train_df, self.seq_len, self.pred_len, self.target_column, self.scaler
-            )
-            self.val_dataset = TimeSeriesDataset(
-                val_df, self.seq_len, self.pred_len, self.target_column, self.scaler
-            )
-            self.test_dataset = TimeSeriesDataset(
-                test_df, self.seq_len, self.pred_len, self.target_column, self.scaler
-            )
+            if self.scale:
+                # Fit scaler on training data
+                train_raw = train_df[numeric_cols].values.astype(float)
+                self.scaler.fit(train_raw)
+                
+                # Transform all datasets
+                train_scaled = self.scaler.transform(train_raw)
+                val_scaled = self.scaler.transform(val_df[numeric_cols].values.astype(float))
+                test_scaled = self.scaler.transform(test_df[numeric_cols].values.astype(float))
+                
+                # Create datasets with scaled data
+                self.train_dataset = TimeSeriesDataset(train_df, self.seq_len, self.pred_len, 
+                                                     self.target_column, scaled_data=train_scaled)
+                self.val_dataset = TimeSeriesDataset(val_df, self.seq_len, self.pred_len, 
+                                                   self.target_column, scaled_data=val_scaled)
+                self.test_dataset = TimeSeriesDataset(test_df, self.seq_len, self.pred_len, 
+                                                    self.target_column, scaled_data=test_scaled)
+            else:
+                # Create datasets without scaling
+                self.train_dataset = TimeSeriesDataset(train_df, self.seq_len, self.pred_len, self.target_column)
+                self.val_dataset = TimeSeriesDataset(val_df, self.seq_len, self.pred_len, self.target_column)
+                self.test_dataset = TimeSeriesDataset(test_df, self.seq_len, self.pred_len, self.target_column)
         else:
             if self.scale:
-                if self.target_column and self.target_column in df.columns:
-                    features = df.drop(columns=[self.target_column])
-                    # Ensure we only select numeric columns for scaling
-                    numeric_cols = features.select_dtypes(include=['float64', 'int64']).columns
-                    features = features[numeric_cols].values
-                else:
-                    # Ensure we only select numeric columns for scaling
-                    numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns
-                    features = df[numeric_cols].values
+                numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns
+                if self.target_column:
+                    numeric_cols = [col for col in numeric_cols if col != self.target_column]
                 
-                features = features.astype(float)
-                self.scaler.fit(features)
-
-            self.train_dataset = TimeSeriesDataset(
-                df, self.seq_len, self.pred_len, self.target_column, self.scaler
-            )
+                raw_data = df[numeric_cols].values.astype(float)
+                scaled_data = self.scaler.fit_transform(raw_data)
+                self.train_dataset = TimeSeriesDataset(df, self.seq_len, self.pred_len, 
+                                                     self.target_column, scaled_data=scaled_data)
+            else:
+                self.train_dataset = TimeSeriesDataset(df, self.seq_len, self.pred_len, self.target_column)
+            
             self.val_dataset = None
             self.test_dataset = None
 
@@ -220,18 +204,16 @@ class TSDataLoader:
         train_loader = DataLoader(
             self.train_dataset,
             batch_size=self.batch_size,
-            shuffle=self.shuffle,
             drop_last=True,
-            num_workers=63
+            num_workers=0
         )
 
         if self.val_dataset:
             val_loader = DataLoader(
                 self.val_dataset,
                 batch_size=self.batch_size,
-                shuffle=False,
                 drop_last=True,
-                num_workers=63
+                num_workers=0
             )
         else:
             val_loader = None
@@ -240,9 +222,8 @@ class TSDataLoader:
             test_loader = DataLoader(
                 self.test_dataset,
                 batch_size=self.batch_size,
-                shuffle=False,
                 drop_last=True,
-                num_workers=63
+                num_workers=0
             )
         else:
             test_loader = None
