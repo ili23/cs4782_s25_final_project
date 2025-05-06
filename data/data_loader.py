@@ -99,14 +99,18 @@ class TimeSeriesDataset(Dataset):
                 lambda row: row.dayofweek, 1)
             self.data_stamp = df_stamp.drop(['date'], axis=1).values
 
+        # Select only numeric columns for features
+        numeric_cols = self.df.select_dtypes(include=['float64', 'int64']).columns
+        
         if target_column and target_column not in self.df.columns:
-            self.features = self.df.values
+            self.features = self.df[numeric_cols].values.astype(float)
             self.targets = self.features
         elif target_column:
-            self.features = self.df.drop(columns=[target_column]).values
-            self.targets = self.df[target_column].values
+            feature_cols = [col for col in numeric_cols if col != target_column]
+            self.features = self.df[feature_cols].values.astype(float)
+            self.targets = self.df[target_column].values.astype(float)
         else:
-            self.features = self.df.values
+            self.features = self.df[numeric_cols].values.astype(float)
             self.targets = self.features
 
         # Apply scaling if scaler is provided
@@ -160,6 +164,10 @@ class TSDataLoader:
         df = pd.read_csv(self.data_csv_path)
         df = df[:15000]
         
+        # Convert all numeric columns to float
+        numeric_columns = df.select_dtypes(include=['int64', 'float64']).columns
+        df[numeric_columns] = df[numeric_columns].astype(float)
+        
         if self.train_val_test_split:
             train_size = int(len(df) * self.train_val_test_split[0])
             val_size = int(len(df) * self.train_val_test_split[1])
@@ -170,9 +178,16 @@ class TSDataLoader:
             # If scaling is enabled, fit the scaler on training data only
             if self.scale:
                 if self.target_column and self.target_column in train_df.columns:
-                    train_features = train_df.drop(columns=[self.target_column]).values
+                    train_features = train_df.drop(columns=[self.target_column])
+                    # Ensure we only select numeric columns for scaling
+                    numeric_cols = train_features.select_dtypes(include=['float64', 'int64']).columns
+                    train_features = train_features[numeric_cols].values
                 else:
-                    train_features = train_df.values
+                    # Ensure we only select numeric columns for scaling
+                    numeric_cols = train_df.select_dtypes(include=['float64', 'int64']).columns
+                    train_features = train_df[numeric_cols].values
+                
+                train_features = train_features.astype(float)
                 self.scaler.fit(train_features)
 
             # Create datasets with the same scaler
@@ -188,9 +203,16 @@ class TSDataLoader:
         else:
             if self.scale:
                 if self.target_column and self.target_column in df.columns:
-                    features = df.drop(columns=[self.target_column]).values
+                    features = df.drop(columns=[self.target_column])
+                    # Ensure we only select numeric columns for scaling
+                    numeric_cols = features.select_dtypes(include=['float64', 'int64']).columns
+                    features = features[numeric_cols].values
                 else:
-                    features = df.values
+                    # Ensure we only select numeric columns for scaling
+                    numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns
+                    features = df[numeric_cols].values
+                
+                features = features.astype(float)
                 self.scaler.fit(features)
 
             self.train_dataset = TimeSeriesDataset(
