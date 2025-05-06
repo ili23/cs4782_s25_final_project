@@ -13,9 +13,10 @@ class AssembledModel(nn.Module):
                  seq_len,
                  input_dim=None, 
                  patch_length=16, 
-                 embed_dim=768, 
-                 depth=4, 
-                 num_heads=12, 
+                 embed_dim=128, 
+                 ff_dim=256,
+                 depth=3, 
+                 num_heads=16, 
                  pred_len=24,
                  stride=8,
                  dataset=None):
@@ -32,7 +33,7 @@ class AssembledModel(nn.Module):
         patch_num = int((seq_len - patch_length)/stride + 1) + 1
         print("Number of patches: ", patch_num)
         self.flatten_head = FlattenHead(embed_dim * patch_num, pred_len)
-        self.encoder = Encoder(d_model=embed_dim, num_heads=num_heads, num_layers=depth, d_ff=embed_dim)
+        self.encoder = Encoder(d_model=embed_dim, num_heads=num_heads, num_layers=depth, d_ff=ff_dim, dropout=0.2)
         
         # Store the output dimension for later use
         self.feature_projection = None  # Will be created in forward if needed

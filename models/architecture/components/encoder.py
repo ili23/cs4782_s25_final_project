@@ -95,11 +95,11 @@ class FeedForward(nn.Module):
 
         self.fc1 = nn.Linear(d_model, d_ff)
         self.fc2 = nn.Linear(d_ff, d_model)
-        self.relu = nn.ReLU()
+        self.gelu = nn.GELU()
 
     def forward(self, x):
         x = self.fc1(x)
-        x = self.relu(x)
+        x = self.gelu(x)
         x = self.fc2(x)
 
         return x

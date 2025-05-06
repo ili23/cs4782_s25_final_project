@@ -1,0 +1,55 @@
+import numpy as np
+import pandas as pd
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import random
+import lightning as L
+from lightning.pytorch import loggers as pl_loggers
+import time
+
+from models.architecture.assembled import AssembledModel
+from models.train_loop import PatchTSTTrainer
+from data.data_loader import TSDataLoader
+
+random.seed(0)
+torch.manual_seed(0)
+
+def main():
+    print("Starting PatchTST training...")
+    seq_len = 336
+    pred_len = 96
+    patch_length = 16
+    depth = 8
+    batch_size = 8
+
+    device = "cpu"
+    print("Creating data loader...")
+    dataloader = TSDataLoader("./data/data_files/weather/weather.csv", batch_size=batch_size, seq_len=seq_len, pred_len=pred_len, device=device)
+    # dataloader = TSDataLoader("./data/data_files/electricity/electricity.csv", batch_size=batch_size, train_val_test_split=None, seq_len=seq_len, pred_len=pred_len, device=device)
+    train_dataloader, val_dataloader, test_dataloader = dataloader.get_data_loaders()
+
+    patch_tst = AssembledModel(patch_length=patch_length, depth=depth, seq_len=seq_len, pred_len=pred_len, dataset=dataloader.train_dataset)
+
+    print("PatchTST model created.")
+
+    output_dir = "./models/results"
+    logs_output_dir = "./models/results/logs"
+    model_trainer = PatchTSTTrainer(patch_tst, output_dir, lr=1e-4)
+
+    tb_logger = pl_loggers.TensorBoardLogger(save_dir=logs_output_dir)
+
+    trainer = L.Trainer(max_epochs=20,
+                        check_val_every_n_epoch=5,
+                        num_sanity_val_steps=0,
+                        logger=tb_logger
+                        )
+
+    start_time = time.time()
+    print("Starting training...")
+    trainer.fit(model_trainer, train_dataloader, val_dataloader)
+    print(f"Training completed in {time.time() - start_time:.2f} seconds.")
+    trainer.test(model_trainer, dataloaders=test_dataloader)
+
+if __name__ == "__main__":
+    main()
