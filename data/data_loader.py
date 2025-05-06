@@ -149,20 +149,25 @@ class TimeSeriesDataset(Dataset):
         self.data_stamp = data_stamp
 
     def __getitem__(self, index):
+        # Input sequence (look back): [s_begin, s_end]
         s_begin = index
         s_end = s_begin + self.seq_len
-        r_begin = s_end - self.label_len
-        r_end = r_begin + self.label_len + self.pred_len
-
-        seq_x = self.data_x[s_begin:s_end]
-        seq_y = self.data_y[r_begin:r_end]
-        seq_x_mark = self.data_stamp[s_begin:s_end]
-        seq_y_mark = self.data_stamp[r_begin:r_end]
+        
+        # Output sequence (forecast): [r_begin, r_end]
+        r_begin = s_end  # Start immediately after input sequence
+        r_end = r_begin + self.pred_len  # Only need pred_len for output
+        
+        # Get data
+        seq_x = self.data_x[s_begin:s_end]  # [seq_len, num_features]
+        seq_y = self.data_y[r_begin:r_end]  # [pred_len, num_features]
+        seq_x_mark = self.data_stamp[s_begin:s_end]  # [seq_len, num_features]
+        seq_y_mark = self.data_stamp[r_begin:r_end]  # [pred_len, num_features]
 
         return torch.FloatTensor(seq_x), torch.FloatTensor(seq_y), \
                torch.FloatTensor(seq_x_mark), torch.FloatTensor(seq_y_mark)
 
     def __len__(self):
+        # We need enough space for input sequence and prediction sequence
         return len(self.data_x) - self.seq_len - self.pred_len + 1
 
     def inverse_transform(self, data):
