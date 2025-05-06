@@ -159,7 +159,7 @@ class TSDataLoader:
 
     def _load_data(self):
         df = pd.read_csv(self.data_csv_path)
-        df = df[:15000]
+        # df = df[:15000]
         if self.train_val_test_split:
             train_size = int(len(df) * self.train_val_test_split[0])
             val_size = int(len(df) * self.train_val_test_split[1])
