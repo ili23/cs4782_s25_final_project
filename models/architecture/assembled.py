@@ -18,9 +18,7 @@ class AssembledModel(nn.Module):
                  num_heads=12, 
                  pred_len=24,
                  stride=8,
-                 mlp_ratio=4.0,
-                 dataset=None,
-                 output_dim=None):  # Make output_dim optional
+                 dataset=None):
         super().__init__()
         
         # Initialize with proper parameters
@@ -37,7 +35,6 @@ class AssembledModel(nn.Module):
         self.encoder = Encoder(d_model=embed_dim, num_heads=num_heads, num_layers=depth, d_ff=embed_dim)
         
         # Store the output dimension for later use
-        self.output_dim = output_dim
         self.feature_projection = None  # Will be created in forward if needed
         
         self.set_dataset(dataset)  # Store reference to dataset for inverse scaling
@@ -83,12 +80,12 @@ class AssembledModel(nn.Module):
         output = output.permute(0,2,1)
         
         # If output_dim is specified and different from input features, create a projection layer
-        if self.output_dim is not None and self.output_dim != f:
-            if self.feature_projection is None:
-                # Create the projection layer on first forward pass when we know the input size
-                self.feature_projection = nn.Linear(f, self.output_dim).to(output.device)
-                print(f"Created projection layer from {f} to {self.output_dim} features")
-            output = self.feature_projection(output)
+        # if self.output_dim is not None and self.output_dim != f:
+        #     if self.feature_projection is None:
+        #         # Create the projection layer on first forward pass when we know the input size
+        #         self.feature_projection = nn.Linear(f, self.output_dim).to(output.device)
+        #         print(f"Created projection layer from {f} to {self.output_dim} features")
+        #     output = self.feature_projection(output)
         
         # Apply inverse transform from StandardScaler if dataset is available
         if self.dataset is not None and hasattr(self.dataset, 'scaler') and self.dataset.scaler is not None:

@@ -18,7 +18,14 @@ class PatchTSTTrainer(L.LightningModule):
         if batch_idx == 0:
             self.train_loss = []
         x, y = batch[0], batch[1]
+        # print("target shape: ", y.shape)
         y_hat = self.forward(x)
+        # if batch_idx == 0:
+        #     print("y_hat: ", y_hat)
+        #     print("y: ", y)
+        print("y_hat shape: ", y_hat.shape)
+        print("y shape: ", y.shape)
+        print("x shape: ", x.shape)
         loss = self.loss(y_hat, y)
         self.train_loss.append(loss.item())
         self.log('train_loss', loss)
@@ -50,5 +57,6 @@ class PatchTSTTrainer(L.LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr)
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=self.lr_step)
-        return [optimizer], [scheduler]
+        # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=self.lr_step)
+        # return [optimizer], [scheduler]
+        return optimizer

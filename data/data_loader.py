@@ -6,36 +6,38 @@ from torch.utils.data import Dataset, DataLoader
 
 
 class StandardScaler:
-    def __init__(self, mean=None, std=None, epsilon=1e-7, train_device='cpu'):
+    def __init__(self, mean=None, std=None, epsilon=1e-7):
         self.mean = mean
         self.std = std
         self.epsilon = epsilon
-        self.train_device = train_device
 
     def fit(self, values):
         """Compute mean and std to be used for normalization"""
         if isinstance(values, np.ndarray):
-            values = torch.FloatTensor(values).to(self.train_device)
+            values = torch.FloatTensor(values)
             
         if values.dim() == 2:
             # For 2D arrays, compute stats along first dimension
-            self.mean = torch.mean(values, dim=0).to(self.train_device)
-            self.std = torch.std(values, dim=0).to(self.train_device)
+            self.mean = torch.mean(values, dim=0)
+            self.std = torch.std(values, dim=0)
         else:
             # For higher dimensional arrays
             dims = list(range(values.dim() - 1))
-            self.mean = torch.mean(values, dim=dims).to(self.train_device)
-            self.std = torch.std(values, dim=dims).to(self.train_device)
+            self.mean = torch.mean(values, dim=dims)
+            self.std = torch.std(values, dim=dims)
 
     def transform(self, values):
         """Normalize values using stored mean and std"""
         if isinstance(values, np.ndarray):
-            values = torch.FloatTensor(values).to(self.train_device)
+            values = torch.FloatTensor(values)
             is_numpy = True
         else:
             is_numpy = False
+
+        mean = self.mean.to(values.device)
+        std = self.std.to(values.device)
             
-        normalized = (values - self.mean) / (self.std + self.epsilon)
+        normalized = (values - mean) / (std + self.epsilon)
         
         if is_numpy:
             return normalized.detach().cpu().numpy()
@@ -67,7 +69,7 @@ class StandardScaler:
 
 
 class TimeSeriesDataset(Dataset):
-    def __init__(self, dataframe, seq_len, pred_len, target_column=None, scale=True, train_device='cpu'):
+    def __init__(self, dataframe, seq_len, pred_len, target_column=None, scale=True):
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.df = dataframe.copy()
@@ -108,7 +110,7 @@ class TimeSeriesDataset(Dataset):
             self.targets = self.features
 
         if scale:
-            self.scaler = StandardScaler(train_device=train_device)
+            self.scaler = StandardScaler()
             self.features = self.scaler.fit_transform(self.features)
         else:
             self.scaler = None
@@ -143,7 +145,7 @@ class TimeSeriesDataset(Dataset):
 class TSDataLoader:
     def __init__(self, data_csv_path, seq_len=24, pred_len=24,
                  batch_size=32, device='cpu', train_val_test_split=[0.7, 0.2, 0.1],
-                 shuffle=True, target_column=None, scale=True, train_device='cpu'):
+                 shuffle=True, target_column=None, scale=True):
         self.data_csv_path = data_csv_path
         self.batch_size = batch_size
         self.device = device
@@ -153,7 +155,6 @@ class TSDataLoader:
         self.pred_len = pred_len
         self.target_column = target_column
         self.scale = scale
-        self.train_device = train_device
         self._load_data()
 
     def _load_data(self):
@@ -167,17 +168,17 @@ class TSDataLoader:
             test_df = df.iloc[train_size + val_size:]
 
             self.train_dataset = TimeSeriesDataset(
-                train_df, self.seq_len, self.pred_len, self.target_column, self.scale, self.train_device
+                train_df, self.seq_len, self.pred_len, self.target_column, self.scale
             )
             self.val_dataset = TimeSeriesDataset(
-                val_df, self.seq_len, self.pred_len, self.target_column, self.scale, self.train_device
+                val_df, self.seq_len, self.pred_len, self.target_column, self.scale
             )
             self.test_dataset = TimeSeriesDataset(
-                test_df, self.seq_len, self.pred_len, self.target_column, self.scale, self.train_device
+                test_df, self.seq_len, self.pred_len, self.target_column, self.scale
             )
         else:
             self.train_dataset = TimeSeriesDataset(
-                df, self.seq_len, self.pred_len, self.target_column, self.scale, self.train_device
+                df, self.seq_len, self.pred_len, self.target_column, self.scale
             )
             self.val_dataset = None
             self.test_dataset = None
@@ -187,7 +188,8 @@ class TSDataLoader:
             self.train_dataset,
             batch_size=self.batch_size,
             shuffle=self.shuffle,
-            drop_last=True
+            drop_last=True,
+            num_workers=63
         )
 
         if self.val_dataset:
