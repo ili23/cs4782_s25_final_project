@@ -71,16 +71,14 @@ class StandardScaler:
 
 class TimeSeriesDataset(Dataset):
     def __init__(self, file_path, flag='train', size=None,
-                 features='M', target='OT', scale=True, timeenc=0, freq='h'):
+                 features=['HUFL', 'HULL', 'MUFL', 'MULL', 'LUFL', 'LULL', 'OT'], scale=True, timeenc=0, freq='h'):
         # size [seq_len, label_len, pred_len]
         if size == None:
             self.seq_len = 24 * 4 * 4
-            self.label_len = 24 * 4
             self.pred_len = 24 * 4
         else:
             self.seq_len = size[0]
-            self.label_len = size[1]
-            self.pred_len = size[2]
+            self.pred_len = size[1]
 
         # init
         assert flag in ['train', 'test', 'val']
@@ -88,24 +86,17 @@ class TimeSeriesDataset(Dataset):
         self.set_type = type_map[flag]
 
         self.features = features
-        self.target = target
         self.scale = scale
         self.timeenc = timeenc
         self.freq = freq
         self.file_path = file_path
-        
-        # Define the feature columns
-        self.feature_names = ['HUFL', 'HULL', 'MUFL', 'MULL', 'LUFL', 'LULL', 'OT']
+    
         
         self.__read_data__()
 
     def __read_data__(self):
         self.scaler = StandardScaler()
         df_raw = pd.read_csv(self.file_path, parse_dates=['date'])
-
-        # Ensure all required features are present
-        assert all(feat in df_raw.columns for feat in self.feature_names), \
-            f"Missing features. Required features: {self.feature_names}"
 
         # Calculate borders
         num_train = int(len(df_raw) * 0.7)
@@ -116,12 +107,7 @@ class TimeSeriesDataset(Dataset):
         border1 = border1s[self.set_type]
         border2 = border2s[self.set_type]
 
-        if self.features == 'M' or self.features == 'MS':
-            df_data = df_raw[self.feature_names]
-        elif self.features == 'S':
-            df_data = df_raw[[self.target]]
-        else:
-            raise ValueError('features must be either M, MS or S')
+        df_data = df_raw[self.features]
 
         if self.scale:
             train_data = df_data[border1s[0]:border2s[0]]

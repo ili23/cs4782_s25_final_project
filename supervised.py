@@ -32,12 +32,18 @@ def main():
         ff_dim=256
         num_heads=16
         embed_dim=128
-
+    feature_map ={
+        'ETT': ['HUFL', 'HULL', 'MUFL', 'MULL', 'LUFL', 'LULL', 'OT'],
+        'electricity': [str(i) for i in range(322)] + ['OT'],
+        'traffic': ['HUFL', 'HULL', 'MUFL', 'MULL', 'LUFL', 'LULL', 'OT'],
+        'illness': ['% WEIGHTED ILI', '%UNWEIGHTED ILI', 'AGE 0-4', 'AGE 5-24', 'ILITOTAL', 'NUM. OF PROVIDERS', 'OT'],
+    }
+    features = feature_map['ETT']
     size = [seq_len, pred_len]
 
     print("Creating data loader...")
     # dataloader = TSDataLoader("./data/data_files/ETT-small/ETTh1.csv", batch_size=batch_size, size=size)
-    dataloader = TSDataLoader("./data/data_files/electricity/electricity.csv", batch_size=batch_size, size=size)
+    dataloader = TSDataLoader("./data/data_files/electricity/electricity.csv", features=features, batch_size=batch_size, size=size)
     # dataloader = TSDataLoader("./data/data_files/ETT-small/ETTh1.csv", batch_size=batch_size, seq_len=seq_len, pred_len=pred_len, device=device)
     # dataloader = TSDataLoader("./data/data_files/electricity/electricity.csv", batch_size=batch_size, train_val_test_split=None, seq_len=seq_len, pred_len=pred_len, device=device)
     train_dataloader, val_dataloader, test_dataloader = dataloader.get_data_loaders()
