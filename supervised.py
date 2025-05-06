@@ -23,28 +23,37 @@ def main():
     depth = 3
     batch_size = 64
 
-    ff_dim=128
-    num_heads=4
-    embed_dim=16
+    small = False
+    if small:
+        ff_dim=128
+        num_heads=4
+        embed_dim=16
+    else:
+        ff_dim=256
+        num_heads=16
+        embed_dim=128
 
-    device = "cpu"
+    size = [seq_len, pred_len]
+
     print("Creating data loader...")
-    dataloader = TSDataLoader("./data/data_files/ETT-small/ETTh1.csv", batch_size=batch_size, seq_len=seq_len, pred_len=pred_len, device=device)
+    # dataloader = TSDataLoader("./data/data_files/ETT-small/ETTh1.csv", batch_size=batch_size, size=size)
+    dataloader = TSDataLoader("./data/data_files/electricity/electricity.csv", batch_size=batch_size, size=size)
+    # dataloader = TSDataLoader("./data/data_files/ETT-small/ETTh1.csv", batch_size=batch_size, seq_len=seq_len, pred_len=pred_len, device=device)
     # dataloader = TSDataLoader("./data/data_files/electricity/electricity.csv", batch_size=batch_size, train_val_test_split=None, seq_len=seq_len, pred_len=pred_len, device=device)
     train_dataloader, val_dataloader, test_dataloader = dataloader.get_data_loaders()
 
-    patch_tst = AssembledModel(patch_length=patch_length, depth=depth, seq_len=seq_len, pred_len=pred_len, ff_dim=ff_dim, embed_dim=embed_dim, num_heads=num_heads, dataset=dataloader.train_dataset)
+    patch_tst = AssembledModel(patch_length=patch_length, depth=depth, seq_len=seq_len, pred_len=pred_len, ff_dim=ff_dim, embed_dim=embed_dim, num_heads=num_heads, dataset=train_dataloader.dataset)
 
     print("PatchTST model created.")
 
     output_dir = "./models/results"
     logs_output_dir = "./models/results/logs"
-    model_trainer = PatchTSTTrainer(patch_tst, output_dir, lr=5e-4)
+    model_trainer = PatchTSTTrainer(patch_tst, output_dir, lr=5e-3)
 
     tb_logger = pl_loggers.TensorBoardLogger(save_dir=logs_output_dir)
 
-    trainer = L.Trainer(max_epochs=20,
-                        check_val_every_n_epoch=5,
+    trainer = L.Trainer(max_epochs=30,
+                        check_val_every_n_epoch=3,
                         num_sanity_val_steps=0,
                         logger=tb_logger
                         )

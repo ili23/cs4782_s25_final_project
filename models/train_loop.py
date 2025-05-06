@@ -27,16 +27,6 @@ class PatchTSTTrainer(L.LightningModule):
         # print("target shape: ", y.shape)
         y_hat = self.forward(x)
         loss = self.get_loss(y_hat, y)
-        if batch_idx == 0:
-            y = y[:, :, self.pred_f:]
-            y_hat = y_hat[:, :, self.pred_f:]
-            print("y_hat", y_hat)
-            print("y", y)
-            print("y_hat - y: ", y_hat - y)
-            print("max diff: ", torch.max(torch.abs(y_hat - y)))
-            print("loss: ", loss)
-            # custom_loss = torch.mean(torch.abs(y_hat - y) ** 2)
-            # print("custom_loss: ", custom_loss)
         self.train_loss.append(loss.item())
         self.log('train_loss', loss)
         return loss
