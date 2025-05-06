@@ -70,9 +70,8 @@ class StandardScaler:
 
 
 class TimeSeriesDataset(Dataset):
-    def __init__(self, root_path, flag='train', size=None,
-                 features='M', data_path='ETTh1.csv',
-                 target='OT', scale=True, timeenc=0, freq='h'):
+    def __init__(self, file_path, flag='train', size=None,
+                 features='M', target='OT', scale=True, timeenc=0, freq='h'):
         # size [seq_len, label_len, pred_len]
         if size == None:
             self.seq_len = 24 * 4 * 4
@@ -93,9 +92,7 @@ class TimeSeriesDataset(Dataset):
         self.scale = scale
         self.timeenc = timeenc
         self.freq = freq
-
-        self.root_path = root_path
-        self.data_path = data_path
+        self.file_path = file_path
         
         # Define the feature columns
         self.feature_names = ['HUFL', 'HULL', 'MUFL', 'MULL', 'LUFL', 'LULL', 'OT']
@@ -104,7 +101,7 @@ class TimeSeriesDataset(Dataset):
 
     def __read_data__(self):
         self.scaler = StandardScaler()
-        df_raw = pd.read_csv(os.path.join(self.root_path, self.data_path))
+        df_raw = pd.read_csv(self.file_path, parse_dates=['date'])
 
         # Ensure all required features are present
         assert all(feat in df_raw.columns for feat in self.feature_names), \
@@ -173,28 +170,28 @@ class TimeSeriesDataset(Dataset):
 
 
 class TSDataLoader:
-    def __init__(self, root_path, batch_size=32, size=None):
-        self.root_path = root_path
+    def __init__(self, file_path, batch_size=32, size=None):
+        self.file_path = file_path
         self.batch_size = batch_size
         self.size = size
 
     def get_data_loaders(self):
         train_dataset = TimeSeriesDataset(
-            root_path=self.root_path,
+            file_path=self.file_path,
             flag='train',
             size=self.size,
             features='M'  # Use multivariate features by default
         )
 
         val_dataset = TimeSeriesDataset(
-            root_path=self.root_path,
+            file_path=self.file_path,
             flag='val',
             size=self.size,
             features='M'  # Use multivariate features by default
         )
 
         test_dataset = TimeSeriesDataset(
-            root_path=self.root_path,
+            file_path=self.file_path,
             flag='test',
             size=self.size,
             features='M'  # Use multivariate features by default
@@ -203,22 +200,19 @@ class TSDataLoader:
         train_loader = DataLoader(
             train_dataset,
             batch_size=self.batch_size,
-            drop_last=True,
-            num_workers=0
+            drop_last=True
         )
 
         val_loader = DataLoader(
             val_dataset,
             batch_size=self.batch_size,
-            drop_last=True,
-            num_workers=0
+            drop_last=True
         )
 
         test_loader = DataLoader(
             test_dataset,
             batch_size=self.batch_size,
-            drop_last=True,
-            num_workers=0
+            drop_last=True
         )
 
         return train_loader, val_loader, test_loader
