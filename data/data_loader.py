@@ -71,7 +71,7 @@ class StandardScaler:
 
 class TimeSeriesDataset(Dataset):
     def __init__(self, root_path, flag='train', size=None,
-                 features='S', data_path='ETTh1.csv',
+                 features='M', data_path='ETTh1.csv',
                  target='OT', scale=True, timeenc=0, freq='h'):
         # size [seq_len, label_len, pred_len]
         if size == None:
@@ -96,11 +96,19 @@ class TimeSeriesDataset(Dataset):
 
         self.root_path = root_path
         self.data_path = data_path
+        
+        # Define the feature columns
+        self.feature_names = ['HUFL', 'HULL', 'MUFL', 'MULL', 'LUFL', 'LULL', 'OT']
+        
         self.__read_data__()
 
     def __read_data__(self):
         self.scaler = StandardScaler()
         df_raw = pd.read_csv(os.path.join(self.root_path, self.data_path))
+
+        # Ensure all required features are present
+        assert all(feat in df_raw.columns for feat in self.feature_names), \
+            f"Missing features. Required features: {self.feature_names}"
 
         # Calculate borders
         num_train = int(len(df_raw) * 0.7)
@@ -112,10 +120,11 @@ class TimeSeriesDataset(Dataset):
         border2 = border2s[self.set_type]
 
         if self.features == 'M' or self.features == 'MS':
-            cols_data = df_raw.columns[1:]  # exclude date column
-            df_data = df_raw[cols_data]
+            df_data = df_raw[self.feature_names]
         elif self.features == 'S':
             df_data = df_raw[[self.target]]
+        else:
+            raise ValueError('features must be either M, MS or S')
 
         if self.scale:
             train_data = df_data[border1s[0]:border2s[0]]
@@ -173,19 +182,22 @@ class TSDataLoader:
         train_dataset = TimeSeriesDataset(
             root_path=self.root_path,
             flag='train',
-            size=self.size
+            size=self.size,
+            features='M'  # Use multivariate features by default
         )
 
         val_dataset = TimeSeriesDataset(
             root_path=self.root_path,
             flag='val',
-            size=self.size
+            size=self.size,
+            features='M'  # Use multivariate features by default
         )
 
         test_dataset = TimeSeriesDataset(
             root_path=self.root_path,
             flag='test',
-            size=self.size
+            size=self.size,
+            features='M'  # Use multivariate features by default
         )
 
         train_loader = DataLoader(
