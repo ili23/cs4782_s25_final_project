@@ -3,6 +3,7 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset, DataLoader
 # from sklearn.preprocessing import StandardScaler
+import os
 
 
 class StandardScaler:
@@ -69,182 +70,155 @@ class StandardScaler:
 
 
 class TimeSeriesDataset(Dataset):
-    def __init__(self, dataframe, seq_len, pred_len, target_column=None, scaler=None):
-        self.seq_len = seq_len
-        self.pred_len = pred_len
-        self.df = dataframe.copy()
-        self.target_column = target_column
-        self.scaler = scaler
-
-        datetime_columns = []
-        for col in self.df.columns:
-            if pd.api.types.is_datetime64_any_dtype(self.df[col]) or isinstance(self.df[col].iloc[0], str):
-                datetime_columns.append(col)
-
-        self.data_stamp = None
-        if datetime_columns:
-            date_col = datetime_columns[0]
-            if not pd.api.types.is_datetime64_any_dtype(self.df[date_col]):
-                self.df[date_col] = pd.to_datetime(self.df[date_col])
-
-            date_features = self.df[date_col].copy()
-            self.df = self.df.drop(columns=datetime_columns)
-            df_stamp = pd.DataFrame()
-            df_stamp['date'] = date_features
-            df_stamp['hour'] = df_stamp.date.apply(lambda row: row.hour, 1)
-            df_stamp['day'] = df_stamp.date.apply(lambda row: row.day, 1)
-            df_stamp['month'] = df_stamp.date.apply(lambda row: row.month, 1)
-            df_stamp['year'] = df_stamp.date.apply(lambda row: row.year, 1)
-            df_stamp['dayofweek'] = df_stamp.date.apply(
-                lambda row: row.dayofweek, 1)
-            self.data_stamp = df_stamp.drop(['date'], axis=1).values
-
-        # Select only numeric columns for features
-        numeric_cols = self.df.select_dtypes(include=['float64', 'int64']).columns
-        
-        if target_column and target_column not in self.df.columns:
-            self.features = self.df[numeric_cols].values.astype(float)
-            self.targets = self.features
-        elif target_column:
-            feature_cols = [col for col in numeric_cols if col != target_column]
-            self.features = self.df[feature_cols].values.astype(float)
-            self.targets = self.df[target_column].values.astype(float)
+    def __init__(self, root_path, flag='train', size=None,
+                 features='M', data_path='ETTh1.csv',
+                 target='OT', scale=True, timeenc=0, freq='h'):
+        # size [seq_len, label_len, pred_len]
+        if size == None:
+            self.seq_len = 24 * 4 * 4
+            self.label_len = 24 * 4
+            self.pred_len = 24 * 4
         else:
-            self.features = self.df[numeric_cols].values.astype(float)
-            self.targets = self.features
+            self.seq_len = size[0]
+            self.label_len = size[1]
+            self.pred_len = size[2]
 
-        # Apply scaling if scaler is provided
-        if self.scaler is not None:
-            self.features = self.scaler.transform(self.features)
+        # init
+        assert flag in ['train', 'test', 'val']
+        type_map = {'train': 0, 'val': 1, 'test': 2}
+        self.set_type = type_map[flag]
 
-    def __len__(self):
-        return len(self.df) - self.seq_len - self.pred_len + 1
+        self.features = features
+        self.target = target
+        self.scale = scale
+        self.timeenc = timeenc
+        self.freq = freq
+
+        self.root_path = root_path
+        self.data_path = data_path
+        
+        # Define the feature columns
+        self.feature_names = ['HUFL', 'HULL', 'MUFL', 'MULL', 'LUFL', 'LULL', 'OT']
+        
+        self.__read_data__()
+
+    def __read_data__(self):
+        self.scaler = StandardScaler()
+        df_raw = pd.read_csv(os.path.join(self.root_path, self.data_path))
+
+        # Ensure all required features are present
+        assert all(feat in df_raw.columns for feat in self.feature_names), \
+            f"Missing features. Required features: {self.feature_names}"
+
+        # Calculate borders
+        num_train = int(len(df_raw) * 0.7)
+        num_test = int(len(df_raw) * 0.2)
+        num_vali = len(df_raw) - num_train - num_test
+        border1s = [0, num_train - self.seq_len, len(df_raw) - num_test - self.seq_len]
+        border2s = [num_train, num_train + num_vali, len(df_raw)]
+        border1 = border1s[self.set_type]
+        border2 = border2s[self.set_type]
+
+        if self.features == 'M' or self.features == 'MS':
+            df_data = df_raw[self.feature_names]
+        elif self.features == 'S':
+            df_data = df_raw[[self.target]]
+        else:
+            raise ValueError('features must be either M, MS or S')
+
+        if self.scale:
+            train_data = df_data[border1s[0]:border2s[0]]
+            self.scaler.fit(train_data.values)
+            data = self.scaler.transform(df_data.values)
+        else:
+            data = df_data.values
+
+        # Process time features
+        df_stamp = df_raw[['date']][border1:border2]
+        df_stamp['date'] = pd.to_datetime(df_stamp.date)
+        
+        if self.timeenc == 0:
+            df_stamp['month'] = df_stamp.date.dt.month
+            df_stamp['day'] = df_stamp.date.dt.day
+            df_stamp['weekday'] = df_stamp.date.dt.weekday
+            df_stamp['hour'] = df_stamp.date.dt.hour
+            data_stamp = df_stamp.drop(['date'], axis=1).values
+        elif self.timeenc == 1:
+            # Implement time features encoding if needed
+            data_stamp = df_stamp.drop(['date'], axis=1).values
+
+        self.data_x = data[border1:border2]
+        self.data_y = data[border1:border2]
+        self.data_stamp = data_stamp
 
     def __getitem__(self, index):
-        x_begin = index
-        x_end = x_begin + self.seq_len
+        s_begin = index
+        s_end = s_begin + self.seq_len
+        r_begin = s_end - self.label_len
+        r_end = r_begin + self.label_len + self.pred_len
 
-        y_begin = x_end
-        y_end = y_begin + self.pred_len
+        seq_x = self.data_x[s_begin:s_end]
+        seq_y = self.data_y[r_begin:r_end]
+        seq_x_mark = self.data_stamp[s_begin:s_end]
+        seq_y_mark = self.data_stamp[r_begin:r_end]
 
-        x = self.features[x_begin:x_end]
-        y = self.targets[y_begin:y_end]
+        return torch.FloatTensor(seq_x), torch.FloatTensor(seq_y), \
+               torch.FloatTensor(seq_x_mark), torch.FloatTensor(seq_y_mark)
 
-        if self.data_stamp is not None:
-            seq_x_mark = self.data_stamp[x_begin:x_end]
-            seq_y_mark = self.data_stamp[y_begin:y_end]
-            return torch.FloatTensor(x), torch.FloatTensor(y), torch.FloatTensor(seq_x_mark), torch.FloatTensor(seq_y_mark)
-        else:
-            return torch.FloatTensor(x), torch.FloatTensor(y)
+    def __len__(self):
+        return len(self.data_x) - self.seq_len - self.pred_len + 1
 
     def inverse_transform(self, data):
-        """Transform normalized data back to original scale"""
-        if self.scaler is not None:
-            return self.scaler.inverse_transform(data)
-        return data
+        return self.scaler.inverse_transform(data)
 
 
 class TSDataLoader:
-    def __init__(self, data_csv_path, seq_len=24, pred_len=24,
-                 batch_size=32, device='cpu', train_val_test_split=[0.7, 0.2, 0.1],
-                 shuffle=True, target_column=None, scale=True):
-        self.data_csv_path = data_csv_path
+    def __init__(self, root_path, batch_size=32, size=None):
+        self.root_path = root_path
         self.batch_size = batch_size
-        self.device = device
-        self.train_val_test_split = train_val_test_split
-        self.shuffle = shuffle
-        self.seq_len = seq_len
-        self.pred_len = pred_len
-        self.target_column = target_column
-        self.scale = scale
-        self.scaler = StandardScaler() if scale else None
-        self._load_data()
-
-    def _load_data(self):
-        df = pd.read_csv(self.data_csv_path)
-        # df = df[:15000]
-        if self.train_val_test_split:
-            train_size = int(len(df) * self.train_val_test_split[0])
-            val_size = int(len(df) * self.train_val_test_split[1])
-            train_df = df.iloc[:train_size]
-            val_df = df.iloc[train_size:train_size + val_size]
-            test_df = df.iloc[train_size + val_size:]
-
-            # If scaling is enabled, fit the scaler on training data only
-            if self.scale:
-                if self.target_column and self.target_column in train_df.columns:
-                    train_features = train_df.drop(columns=[self.target_column])
-                    # Ensure we only select numeric columns for scaling
-                    numeric_cols = train_features.select_dtypes(include=['float64', 'int64']).columns
-                    train_features = train_features[numeric_cols].values
-                else:
-                    # Ensure we only select numeric columns for scaling
-                    numeric_cols = train_df.select_dtypes(include=['float64', 'int64']).columns
-                    train_features = train_df[numeric_cols].values
-                
-                train_features = train_features.astype(float)
-                self.scaler.fit(train_features)
-
-            # Create datasets with the same scaler
-            self.train_dataset = TimeSeriesDataset(
-                train_df, self.seq_len, self.pred_len, self.target_column, self.scaler
-            )
-            self.val_dataset = TimeSeriesDataset(
-                val_df, self.seq_len, self.pred_len, self.target_column, self.scaler
-            )
-            self.test_dataset = TimeSeriesDataset(
-                test_df, self.seq_len, self.pred_len, self.target_column, self.scaler
-            )
-        else:
-            if self.scale:
-                if self.target_column and self.target_column in df.columns:
-                    features = df.drop(columns=[self.target_column])
-                    # Ensure we only select numeric columns for scaling
-                    numeric_cols = features.select_dtypes(include=['float64', 'int64']).columns
-                    features = features[numeric_cols].values
-                else:
-                    # Ensure we only select numeric columns for scaling
-                    numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns
-                    features = df[numeric_cols].values
-                
-                features = features.astype(float)
-                self.scaler.fit(features)
-
-            self.train_dataset = TimeSeriesDataset(
-                df, self.seq_len, self.pred_len, self.target_column, self.scaler
-            )
-            self.val_dataset = None
-            self.test_dataset = None
+        self.size = size
 
     def get_data_loaders(self):
-        train_loader = DataLoader(
-            self.train_dataset,
-            batch_size=self.batch_size,
-            shuffle=self.shuffle,
-            drop_last=True,
-            num_workers=63
+        train_dataset = TimeSeriesDataset(
+            root_path=self.root_path,
+            flag='train',
+            size=self.size,
+            features='M'  # Use multivariate features by default
         )
 
-        if self.val_dataset:
-            val_loader = DataLoader(
-                self.val_dataset,
-                batch_size=self.batch_size,
-                shuffle=False,
-                drop_last=True,
-                num_workers=63
-            )
-        else:
-            val_loader = None
-            
-        if self.test_dataset:
-            test_loader = DataLoader(
-                self.test_dataset,
-                batch_size=self.batch_size,
-                shuffle=False,
-                drop_last=True,
-                num_workers=63
-            )
-        else:
-            test_loader = None
+        val_dataset = TimeSeriesDataset(
+            root_path=self.root_path,
+            flag='val',
+            size=self.size,
+            features='M'  # Use multivariate features by default
+        )
+
+        test_dataset = TimeSeriesDataset(
+            root_path=self.root_path,
+            flag='test',
+            size=self.size,
+            features='M'  # Use multivariate features by default
+        )
+
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=self.batch_size,
+            drop_last=True,
+            num_workers=0
+        )
+
+        val_loader = DataLoader(
+            val_dataset,
+            batch_size=self.batch_size,
+            drop_last=True,
+            num_workers=0
+        )
+
+        test_loader = DataLoader(
+            test_dataset,
+            batch_size=self.batch_size,
+            drop_last=True,
+            num_workers=0
+        )
 
         return train_loader, val_loader, test_loader
