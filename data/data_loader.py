@@ -69,12 +69,12 @@ class StandardScaler:
 
 
 class TimeSeriesDataset(Dataset):
-    def __init__(self, dataframe, seq_len, pred_len, target_column=None, scale=True):
+    def __init__(self, dataframe, seq_len, pred_len, target_column=None, scaler=None):
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.df = dataframe.copy()
         self.target_column = target_column
-        self.scale = scale  # Store whether we scaled the data
+        self.scaler = scaler
 
         datetime_columns = []
         for col in self.df.columns:
@@ -109,11 +109,9 @@ class TimeSeriesDataset(Dataset):
             self.features = self.df.values
             self.targets = self.features
 
-        if scale:
-            self.scaler = StandardScaler()
-            self.features = self.scaler.fit_transform(self.features)
-        else:
-            self.scaler = None
+        # Apply scaling if scaler is provided
+        if self.scaler is not None:
+            self.features = self.scaler.transform(self.features)
 
     def __len__(self):
         return len(self.df) - self.seq_len - self.pred_len + 1
@@ -137,7 +135,7 @@ class TimeSeriesDataset(Dataset):
 
     def inverse_transform(self, data):
         """Transform normalized data back to original scale"""
-        if self.scale and self.scaler is not None:
+        if self.scaler is not None:
             return self.scaler.inverse_transform(data)
         return data
 
@@ -155,11 +153,13 @@ class TSDataLoader:
         self.pred_len = pred_len
         self.target_column = target_column
         self.scale = scale
+        self.scaler = StandardScaler() if scale else None
         self._load_data()
 
     def _load_data(self):
         df = pd.read_csv(self.data_csv_path)
         df = df[:15000]
+        
         if self.train_val_test_split:
             train_size = int(len(df) * self.train_val_test_split[0])
             val_size = int(len(df) * self.train_val_test_split[1])
@@ -167,18 +167,34 @@ class TSDataLoader:
             val_df = df.iloc[train_size:train_size + val_size]
             test_df = df.iloc[train_size + val_size:]
 
+            # If scaling is enabled, fit the scaler on training data only
+            if self.scale:
+                if self.target_column and self.target_column in train_df.columns:
+                    train_features = train_df.drop(columns=[self.target_column]).values
+                else:
+                    train_features = train_df.values
+                self.scaler.fit(train_features)
+
+            # Create datasets with the same scaler
             self.train_dataset = TimeSeriesDataset(
-                train_df, self.seq_len, self.pred_len, self.target_column, self.scale
+                train_df, self.seq_len, self.pred_len, self.target_column, self.scaler
             )
             self.val_dataset = TimeSeriesDataset(
-                val_df, self.seq_len, self.pred_len, self.target_column, self.scale
+                val_df, self.seq_len, self.pred_len, self.target_column, self.scaler
             )
             self.test_dataset = TimeSeriesDataset(
-                test_df, self.seq_len, self.pred_len, self.target_column, self.scale
+                test_df, self.seq_len, self.pred_len, self.target_column, self.scaler
             )
         else:
+            if self.scale:
+                if self.target_column and self.target_column in df.columns:
+                    features = df.drop(columns=[self.target_column]).values
+                else:
+                    features = df.values
+                self.scaler.fit(features)
+
             self.train_dataset = TimeSeriesDataset(
-                df, self.seq_len, self.pred_len, self.target_column, self.scale
+                df, self.seq_len, self.pred_len, self.target_column, self.scaler
             )
             self.val_dataset = None
             self.test_dataset = None
