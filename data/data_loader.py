@@ -162,12 +162,7 @@ class TSDataLoader:
 
     def _load_data(self):
         df = pd.read_csv(self.data_csv_path)
-        df = df[:15000]
-        
-        # Convert all numeric columns to float
-        numeric_columns = df.select_dtypes(include=['int64', 'float64']).columns
-        df[numeric_columns] = df[numeric_columns].astype(float)
-        
+        # df = df[:15000]
         if self.train_val_test_split:
             train_size = int(len(df) * self.train_val_test_split[0])
             val_size = int(len(df) * self.train_val_test_split[1])

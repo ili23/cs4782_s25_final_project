@@ -20,22 +20,26 @@ def main():
     seq_len = 336
     pred_len = 96
     patch_length = 16
-    depth = 8
-    batch_size = 8
+    depth = 3
+    batch_size = 64
+
+    ff_dim=128
+    num_heads=4
+    embed_dim=16
 
     device = "cpu"
     print("Creating data loader...")
-    dataloader = TSDataLoader("./data/data_files/weather/weather.csv", batch_size=batch_size, seq_len=seq_len, pred_len=pred_len, device=device)
+    dataloader = TSDataLoader("./data/data_files/ETT-small/ETTh1.csv", batch_size=batch_size, seq_len=seq_len, pred_len=pred_len, device=device)
     # dataloader = TSDataLoader("./data/data_files/electricity/electricity.csv", batch_size=batch_size, train_val_test_split=None, seq_len=seq_len, pred_len=pred_len, device=device)
     train_dataloader, val_dataloader, test_dataloader = dataloader.get_data_loaders()
 
-    patch_tst = AssembledModel(patch_length=patch_length, depth=depth, seq_len=seq_len, pred_len=pred_len, dataset=dataloader.train_dataset)
+    patch_tst = AssembledModel(patch_length=patch_length, depth=depth, seq_len=seq_len, pred_len=pred_len, ff_dim=ff_dim, embed_dim=embed_dim, num_heads=num_heads, dataset=dataloader.train_dataset)
 
     print("PatchTST model created.")
 
     output_dir = "./models/results"
     logs_output_dir = "./models/results/logs"
-    model_trainer = PatchTSTTrainer(patch_tst, output_dir, lr=1e-4)
+    model_trainer = PatchTSTTrainer(patch_tst, output_dir, lr=5e-4)
 
     tb_logger = pl_loggers.TensorBoardLogger(save_dir=logs_output_dir)
 
