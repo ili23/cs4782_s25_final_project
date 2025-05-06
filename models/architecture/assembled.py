@@ -27,10 +27,10 @@ class AssembledModel(nn.Module):
         self.variable_splitter = VariableSplitter()
         self.patcher = Patcher(patch_length, stride=stride)
         self.projection = Projection(patch_dim=patch_length, d_dim=embed_dim)
-        self.pos_embedder = PositionalEncoding(d_model=embed_dim)
-        # self.pos_embedder = LearnedEncoding(patch_num=patch_length, d_model=embed_dim)
-        # d_ff is the hidden dimension size for the feed-forward network, change later
+        # self.pos_embedder = PositionalEncoding(d_model=embed_dim)
         patch_num = int((seq_len - patch_length)/stride + 1) + 1
+        self.pos_embedder = LearnedEncoding(patch_num=patch_num, d_model=embed_dim)
+        # d_ff is the hidden dimension size for the feed-forward network, change later
         print("Number of patches: ", patch_num)
         self.flatten_head = FlattenHead(embed_dim * patch_num, pred_len)
         self.encoder = Encoder(d_model=embed_dim, num_heads=num_heads, num_layers=depth, d_ff=ff_dim, dropout=0.2)

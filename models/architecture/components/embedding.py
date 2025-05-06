@@ -39,7 +39,7 @@ class LearnedEncoding(nn.Module):
         """
         super(LearnedEncoding, self).__init__()
         
-        encoding = torch.empty((patch_num, d_model))
+        encoding = torch.empty((1, patch_num, d_model))
         torch.nn.init.normal_(encoding, mean=0.0, std=0.1)
         self.encoding = nn.Parameter(encoding, requires_grad=True)
 
