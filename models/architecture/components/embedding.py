@@ -1,10 +1,10 @@
+# This code is based off of Assignment 2 of Cornell's CS4782 course.
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import math
     
 class PositionalEncoding(nn.Module):
-    # Code from A2
     def __init__(self, d_model, max_seq_length=5000):
         """
         Inputs:

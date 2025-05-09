@@ -6,23 +6,27 @@ import torch.nn.functional as F
 import random
 import lightning as L
 from lightning.pytorch import loggers as pl_loggers
+from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint, LearningRateMonitor
 import time
 
 from models.architecture.assembled import AssembledModel
 from models.train_loop import PatchTSTTrainer
 from data.data_loader import TSDataLoader
 
-random.seed(2021)
-torch.manual_seed(2021)
+random.seed(0)
+torch.manual_seed(0)
+np.random.seed(0)
+torch.backends.cudnn.deterministic = True
 
 def main():
     print("Starting PatchTST training...")
     name = "ETT"
+    depth = 3   # Reduced from original
+    lr = 1e-4
     if name == "illness":
         seq_len = 48
         pred_len = 12
         patch_length = 16
-        depth = 3
         batch_size = 64
         small = True
         csv = "./data/data_files/illness/national_illness.csv"
@@ -30,7 +34,6 @@ def main():
         seq_len = 336
         pred_len = 96
         patch_length = 16
-        depth = 3
         batch_size = 64
         small = True
         csv = "./data/data_files/ETT-small/ETTh1.csv"
@@ -38,7 +41,6 @@ def main():
         seq_len = 336
         pred_len = 96
         patch_length = 16
-        depth = 3
         batch_size = 64
         small = True
         csv = "./data/data_files/ETT-small/ETTm1.csv"
@@ -46,7 +48,6 @@ def main():
         seq_len = 336
         pred_len = 96
         patch_length = 16
-        depth = 3
         batch_size = 64
         small = False
         csv = "./data/data_files/electricity/electricity.csv"
@@ -54,15 +55,14 @@ def main():
         seq_len = 336
         pred_len = 96
         patch_length = 16
-        depth = 3
         batch_size = 32
         small = False
         csv = "./data/data_files/traffic/traffic.csv"
 
     if small:
-        ff_dim=128
-        num_heads=4
-        embed_dim=16
+        ff_dim = 64  # Reduced complexity
+        num_heads = 4
+        embed_dim = 16
     else:
         ff_dim=256
         num_heads=16
@@ -80,31 +80,49 @@ def main():
 
     print("Creating data loader...")
     # dataloader = TSDataLoader("./data/data_files/ETT-small/ETTh1.csv", batch_size=batch_size, size=size)
-    dataloader = TSDataLoader(csv, features=features, batch_size=batch_size, size=size)
-    # dataloader = TSDataLoader("./data/data_files/ETT-small/ETTh1.csv", batch_size=batch_size, seq_len=seq_len, pred_len=pred_len, device=device)
-    # dataloader = TSDataLoader("./data/data_files/electricity/electricity.csv", batch_size=batch_size, train_val_test_split=None, seq_len=seq_len, pred_len=pred_len, device=device)
+    dataloader = TSDataLoader(
+        csv, 
+        features=features, 
+        batch_size=batch_size, 
+        size=size
+    )
     train_dataloader, val_dataloader, test_dataloader = dataloader.get_data_loaders()
 
-    patch_tst = AssembledModel(patch_length=patch_length, depth=depth, seq_len=seq_len, pred_len=pred_len, ff_dim=ff_dim, embed_dim=embed_dim, num_heads=num_heads)
+    patch_tst = AssembledModel(
+        patch_length=patch_length, 
+        depth=depth, 
+        seq_len=seq_len, 
+        pred_len=pred_len, 
+        ff_dim=ff_dim, 
+        embed_dim=embed_dim, 
+        num_heads=num_heads, 
+        dropout=0.3,
+        dataset=train_dataloader.dataset
+    )
 
     print("PatchTST model created.")
 
     output_dir = "./models/results/"
     logs_output_dir = "./models/results/logs/"
-    model_trainer = PatchTSTTrainer(patch_tst, output_dir, lr=1e-4)
+    model_trainer = PatchTSTTrainer(patch_tst, output_dir, lr=lr)
 
     tb_logger = pl_loggers.TensorBoardLogger(save_dir=logs_output_dir)
 
     trainer = L.Trainer(max_epochs=30,
-                        check_val_every_n_epoch=5,
+                        check_val_every_n_epoch=3,
                         num_sanity_val_steps=0,
-                        logger=tb_logger
+                        logger=tb_logger,
+                        # accumulate_grad_batches=2,
+                        # gradient_clip_val=1.0,
                         )
 
     start_time = time.time()
     print("Starting training...")
     trainer.fit(model_trainer, train_dataloader, val_dataloader)
     print(f"Training completed in {time.time() - start_time:.2f} seconds.")
+    
+    # Load best model for testing
+    model_trainer.load_from_checkpoint(checkpoint_callback.best_model_path)
     trainer.test(model_trainer, dataloaders=test_dataloader)
 
 if __name__ == "__main__":
