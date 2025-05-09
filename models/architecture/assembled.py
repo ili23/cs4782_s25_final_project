@@ -32,7 +32,7 @@ class AssembledModel(nn.Module):
         # d_ff is the hidden dimension size for the feed-forward network, change later
         print("Number of patches: ", patch_num)
         self.flatten_head = FlattenHead(embed_dim * patch_num, pred_len)
-        self.encoder = Encoder(d_model=embed_dim, num_heads=num_heads, num_layers=depth, d_ff=ff_dim, dropout=0.2)
+        self.encoder = Encoder(d_model=embed_dim, num_heads=num_heads, num_layers=depth, d_ff=ff_dim, dropout=0.3)
         
         
 

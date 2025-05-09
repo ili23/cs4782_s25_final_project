@@ -102,8 +102,10 @@ class TimeSeriesDataset(Dataset):
         num_train = int(len(df_raw) * 0.7)
         num_test = int(len(df_raw) * 0.2)
         num_vali = len(df_raw) - num_train - num_test
-        border1s = [0, num_train - self.seq_len, len(df_raw) - num_test - self.seq_len]
+        border1s = [0, num_train, num_train + num_vali]
         border2s = [num_train, num_train + num_vali, len(df_raw)]
+        print("Border1s: ", border1s)
+        print("Border2s: ", border2s)
         border1 = border1s[self.set_type]
         border2 = border2s[self.set_type]
 
@@ -161,31 +163,32 @@ class TimeSeriesDataset(Dataset):
 
 
 class TSDataLoader:
-    def __init__(self, file_path, batch_size=32, size=None):
+    def __init__(self, file_path, features, batch_size=32, size=None):
         self.file_path = file_path
         self.batch_size = batch_size
         self.size = size
+        self.features = features
 
     def get_data_loaders(self):
         train_dataset = TimeSeriesDataset(
             file_path=self.file_path,
             flag='train',
             size=self.size,
-            features='M'  # Use multivariate features by default
+            features=self.features
         )
 
         val_dataset = TimeSeriesDataset(
             file_path=self.file_path,
             flag='val',
             size=self.size,
-            features='M'  # Use multivariate features by default
+            features=self.features
         )
 
         test_dataset = TimeSeriesDataset(
             file_path=self.file_path,
             flag='test',
             size=self.size,
-            features='M'  # Use multivariate features by default
+            features=self.features
         )
 
         train_loader = DataLoader(
