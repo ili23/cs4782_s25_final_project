@@ -46,7 +46,7 @@ class PatchTSTTrainer(L.LightningModule):
     def on_train_epoch_end(self):
         train_loss = torch.mean(torch.tensor(self.train_loss))
         self.log('total_train_loss', train_loss)
-        print("Train epoch complete, loss: ", train_loss)
+        # print("Train epoch complete, loss: ", train_loss)
 
     def validation_step(self, batch, batch_idx):
         if batch_idx == 0:

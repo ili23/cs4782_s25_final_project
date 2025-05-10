@@ -18,7 +18,8 @@ class AssembledModel(nn.Module):
                  depth=3, 
                  num_heads=16, 
                  pred_len=24,
-                 stride=8):
+                 stride=8,
+                 dropout=0.3):
         super().__init__()
         
         # Initialize with proper parameters
@@ -32,7 +33,7 @@ class AssembledModel(nn.Module):
         # d_ff is the hidden dimension size for the feed-forward network, change later
         print("Number of patches: ", patch_num)
         self.flatten_head = FlattenHead(embed_dim * patch_num, pred_len)
-        self.encoder = Encoder(d_model=embed_dim, num_heads=num_heads, num_layers=depth, d_ff=ff_dim, dropout=0.3)
+        self.encoder = Encoder(d_model=embed_dim, num_heads=num_heads, num_layers=depth, d_ff=ff_dim, dropout=dropout)
         
         
 

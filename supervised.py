@@ -13,21 +13,22 @@ from models.architecture.assembled import AssembledModel
 from models.train_loop import PatchTSTTrainer
 from data.data_loader import TSDataLoader
 
-random.seed(0)
-torch.manual_seed(0)
-np.random.seed(0)
+random.seed(2021)
+torch.manual_seed(2021)
+np.random.seed(2021)
 torch.backends.cudnn.deterministic = True
 
 def main():
     print("Starting PatchTST training...")
-    name = "ETT"
+    name = "illness"
     depth = 3   # Reduced from original
     lr = 1e-4
+    dropout = 0.3
     if name == "illness":
         seq_len = 48
         pred_len = 12
         patch_length = 16
-        batch_size = 64
+        batch_size = 32
         small = True
         csv = "./data/data_files/illness/national_illness.csv"
     elif name == "ETT":
@@ -96,8 +97,7 @@ def main():
         ff_dim=ff_dim, 
         embed_dim=embed_dim, 
         num_heads=num_heads, 
-        dropout=0.3,
-        dataset=train_dataloader.dataset
+        dropout=dropout,
     )
 
     print("PatchTST model created.")
@@ -108,8 +108,8 @@ def main():
 
     tb_logger = pl_loggers.TensorBoardLogger(save_dir=logs_output_dir)
 
-    trainer = L.Trainer(max_epochs=30,
-                        check_val_every_n_epoch=3,
+    trainer = L.Trainer(max_epochs=250,
+                        check_val_every_n_epoch=10,
                         num_sanity_val_steps=0,
                         logger=tb_logger,
                         # accumulate_grad_batches=2,
@@ -122,7 +122,7 @@ def main():
     print(f"Training completed in {time.time() - start_time:.2f} seconds.")
     
     # Load best model for testing
-    model_trainer.load_from_checkpoint(checkpoint_callback.best_model_path)
+    # model_trainer.load_from_checkpoint(checkpoint_callback.best_model_path)
     trainer.test(model_trainer, dataloaders=test_dataloader)
 
 if __name__ == "__main__":
