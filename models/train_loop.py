@@ -76,7 +76,7 @@ class PatchTSTTrainer(L.LightningModule):
 
     def test_step(self, batch, batch_idx):
         if batch_idx == 0:
-            self.best_model = self.load_best_model()
+            self.model = self.load_best_model()
             self.test_loss = []
             self.test_mae_loss = []
         x, y = batch[0], batch[1]

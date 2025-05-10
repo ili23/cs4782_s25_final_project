@@ -6,7 +6,6 @@ import torch.nn.functional as F
 import random
 import lightning as L
 from lightning.pytorch import loggers as pl_loggers
-from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint, LearningRateMonitor
 import time
 
 from models.architecture.assembled import AssembledModel
@@ -122,7 +121,6 @@ def main():
     print(f"Training completed in {time.time() - start_time:.2f} seconds.")
     
     # Load best model for testing
-    # model_trainer.load_from_checkpoint(checkpoint_callback.best_model_path)
     trainer.test(model_trainer, dataloaders=test_dataloader)
 
 if __name__ == "__main__":
