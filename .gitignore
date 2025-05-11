@@ -2,5 +2,7 @@
 *.cache
 */data_files/*
 */venv/*
-*/__pycache__/*
-*/checkpoints/*
+*__pycache__*
+*checkpoints*
+*.pt
+*.yaml

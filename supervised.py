@@ -7,6 +7,7 @@ import random
 import lightning as L
 from lightning.pytorch import loggers as pl_loggers
 import time
+import argparse
 
 from models.architecture.assembled import AssembledModel
 from models.train_loop import PatchTSTTrainer
@@ -17,12 +18,24 @@ torch.manual_seed(2021)
 np.random.seed(2021)
 torch.backends.cudnn.deterministic = True
 
-def main():
-    print("Starting PatchTST training...")
-    name = "illness"
+def _parse_args():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "--name",
+        type=str,
+        default="ETTh1",
+        help="Name of the dataset to train on. Options: [ETTh1, ETTm1, electricity, traffic, illness]",
+    )
+
+    return parser.parse_args()
+
+def main(args):
+    print(f"Starting PatchTST training on dataset {args.name}...")
     depth = 3   # Reduced from original
     lr = 1e-4
     dropout = 0.3
+    name = args.name
     if name == "illness":
         seq_len = 48
         pred_len = 12
@@ -32,14 +45,14 @@ def main():
         csv = "./data/data_files/illness/national_illness.csv"
         num_epochs = 100
         check_val = 5
-    elif name == "ETT":
+    elif name == "ETTh1":
         seq_len = 336
         pred_len = 96
         patch_length = 16
         batch_size = 64
         small = True
         csv = "./data/data_files/ETT-small/ETTh1.csv"
-        num_epochs = 100
+        num_epochs = 25
         check_val = 5
     elif name == "ETTm1":
         seq_len = 336
@@ -48,7 +61,7 @@ def main():
         batch_size = 64
         small = True
         csv = "./data/data_files/ETT-small/ETTm1.csv"
-        num_epochs = 100
+        num_epochs = 25
         check_val = 5
     elif name == "electricity":
         seq_len = 336
@@ -79,7 +92,7 @@ def main():
         embed_dim=128
 
     feature_map ={
-        'ETT': ['HUFL', 'HULL', 'MUFL', 'MULL', 'LUFL', 'LULL', 'OT'],
+        'ETTh1': ['HUFL', 'HULL', 'MUFL', 'MULL', 'LUFL', 'LULL', 'OT'],
         'ETTm1': ['HUFL', 'HULL', 'MUFL', 'MULL', 'LUFL', 'LULL', 'OT'],
         'electricity': [str(i) for i in range(320)] + ['OT'],
         'traffic': [str(i) for i in range(861)] + ['OT'],
@@ -134,4 +147,5 @@ def main():
     trainer.test(model_trainer, dataloaders=test_dataloader)
 
 if __name__ == "__main__":
-    main()
+    args = _parse_args()
+    main(args)

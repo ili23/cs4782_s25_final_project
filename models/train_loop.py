@@ -40,7 +40,7 @@ class PatchTSTTrainer(L.LightningModule):
         y_hat = self.forward(x)
         loss = self.get_loss(y_hat, y)
         self.train_loss.append(loss.item())
-        self.log('train_loss', loss)
+        # self.log('train_loss', loss)
         return loss
     
     def on_train_epoch_end(self):
@@ -55,7 +55,7 @@ class PatchTSTTrainer(L.LightningModule):
         y_hat = self.forward(x)
         loss = self.get_loss(y_hat, y)
         self.val_loss.append(loss.item())
-        self.log('val_loss', loss)
+        # self.log('val_loss', loss)
         return loss
     
     def on_validation_epoch_end(self):
@@ -85,14 +85,14 @@ class PatchTSTTrainer(L.LightningModule):
         mae_loss = self.get_mae_loss(y_hat, y)
         self.test_loss.append(loss.item())
         self.test_mae_loss.append(mae_loss.item())
-        self.log('test_loss', loss)
-        self.log('test_mae_loss', mae_loss)
+        # self.log('test_loss', loss)
+        # self.log('test_mae_loss', mae_loss)
         return loss
 
     def on_test_epoch_end(self):
         test_loss = torch.mean(torch.tensor(self.test_loss))
         test_mae_loss = torch.mean(torch.tensor(self.test_mae_loss))
-        self.log('total_test_loss', test_loss)
+        self.log('total_test_mse_loss', test_loss)
         self.log('total_test_mae_loss', test_mae_loss)
         print("Test epoch complete, loss: ", test_loss)
         print("Test epoch complete, mae loss: ", test_mae_loss)
