@@ -15,7 +15,7 @@ We were aiming to reproduce the results of applying supervised PatchTST/64 over 
 
 ## Github Contents
 
-In our /data folder we have the dataloader setup, within /models we have the model architecture implementation, inside the /poster folder we have a copy of our poster and the /report has a pdf of our project report. Inside the /results you will find the results that we achieved. Additionally, within every folder in results there is a log folder inside them and where you can see the he train/val/test losses we obtained please run run “tensorboard --logdir .” within the respective log directory.
+In our /data folder we have the dataloader setup, within /models we have the model architecture implementation, inside the /poster folder we have a copy of our poster and the /report has a pdf of our project report. Inside the /results you will find the results that we achieved. Additionally, within the results folder there is a log folder for the training of the model on each dataset. To see the train/val/test losses we obtained please run “tensorboard --logdir .” within the respective log directory.
 
 ## Re-implementation Details
 
@@ -23,15 +23,13 @@ Our re-implementation of supervised PatchTST/64 is nearly identical to the model
 
 ## Reproduction Steps
 
-First download the datasets from the link below and drop the files into the /data folder
+First download the datasets from the link below and drop the files into the /data/data_files folder
 
 Dataset: https://drive.google.com/drive/folders/1ZOYpTUa82_jCcxIdTmyr0LXQfvaM9vIy
 
 Then install the dependencies from requirements.txt
 
-Then finally to run the model and train it run the file supervised.py by being in the cs4782_s25_final_project directory with the following command
-
-python supervised.py
+Then finally to run the model and train it, run the file supervised.py inside the cs4782_s25_final_project directory with the desired training dataset (Options are: "electricity", "ETTh1", "ETTm1", "traffic", and "illness") listed as an argument. Ex. `python supervised.py --name=electricity`
 
 ## Results/Insights
 
