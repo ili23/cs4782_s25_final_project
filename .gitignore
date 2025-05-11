@@ -3,3 +3,4 @@
 */data_files/*
 */venv/*
 */__pycache__/*
+*/checkpoints/*
