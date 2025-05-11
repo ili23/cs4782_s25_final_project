@@ -1,5 +1,5 @@
 # CS4782 Spring 2025 Final Project
-
+Group 33: Iram Liu (il233), Jeffrey Xiang (jjx5), Wen Chen (wc467), Ajay Sachdev (aks262), Nick Hsieh (njh79)
 ## Introduction
 
 ## Chosen Result
