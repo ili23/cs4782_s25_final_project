@@ -27,9 +27,11 @@ def main():
         seq_len = 48
         pred_len = 12
         patch_length = 16
-        batch_size = 32
+        batch_size = 8
         small = True
         csv = "./data/data_files/illness/national_illness.csv"
+        num_epochs = 100
+        check_val = 5
     elif name == "ETT":
         seq_len = 336
         pred_len = 96
@@ -37,6 +39,8 @@ def main():
         batch_size = 64
         small = True
         csv = "./data/data_files/ETT-small/ETTh1.csv"
+        num_epochs = 100
+        check_val = 5
     elif name == "ETTm1":
         seq_len = 336
         pred_len = 96
@@ -44,6 +48,8 @@ def main():
         batch_size = 64
         small = True
         csv = "./data/data_files/ETT-small/ETTm1.csv"
+        num_epochs = 100
+        check_val = 5
     elif name == "electricity":
         seq_len = 336
         pred_len = 96
@@ -51,6 +57,8 @@ def main():
         batch_size = 64
         small = False
         csv = "./data/data_files/electricity/electricity.csv"
+        num_epochs = 3
+        check_val = 1
     elif name == "traffic":
         seq_len = 336
         pred_len = 96
@@ -58,6 +66,8 @@ def main():
         batch_size = 32
         small = False
         csv = "./data/data_files/traffic/traffic.csv"
+        num_epochs = 3
+        check_val = 1
 
     if small:
         ff_dim = 64  # Reduced complexity
@@ -101,14 +111,14 @@ def main():
 
     print("PatchTST model created.")
 
-    output_dir = "./models/results/"
-    logs_output_dir = "./models/results/logs/"
+    output_dir = f"./results/{name}/"
+    logs_output_dir = f"./results/{name}/logs/"
     model_trainer = PatchTSTTrainer(patch_tst, output_dir, lr=lr)
 
     tb_logger = pl_loggers.TensorBoardLogger(save_dir=logs_output_dir)
 
-    trainer = L.Trainer(max_epochs=250,
-                        check_val_every_n_epoch=10,
+    trainer = L.Trainer(max_epochs=num_epochs,
+                        check_val_every_n_epoch=check_val,
                         num_sanity_val_steps=0,
                         logger=tb_logger,
                         # accumulate_grad_batches=2,
