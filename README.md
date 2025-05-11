@@ -29,7 +29,7 @@ Dataset: https://drive.google.com/drive/folders/1ZOYpTUa82_jCcxIdTmyr0LXQfvaM9vI
 
 Then install the dependencies from requirements.txt
 
-Then finally to run the model and train it, run the file supervised.py inside the cs4782_s25_final_project directory with the desired training dataset (Options are: "electricity", "ETTh1", "ETTm1", "traffic", and "illness") listed as an argument. Ex. `python supervised.py --name=electricity`
+Then finally to run the model and train it, run the file supervised.py inside the cs4782_s25_final_project directory with the desired training dataset (Options are: "electricity", "ETTh1", "ETTm1", "traffic", and "illness") listed as an argument. For example: `python supervised.py --name=electricity`
 
 ## Results/Insights
 
